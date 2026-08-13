@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 
 import homeBackground from '../assets/figma/home/home-background.png'
+import homeLogo from '../assets/figma/home/home-logo.png'
 import missionStar from '../assets/figma/home/mission-star.svg'
 import dongcheonCharacter from '../assets/figma/policy-selection/dongcheon-character.png'
 import goejeongcheonCharacter from '../assets/figma/policy-selection/goejeongcheon-character.png'
@@ -36,13 +37,8 @@ export default function HomePage() {
     <main id="main-content" className="figma-home-screen" tabIndex={-1}>
       <img className="figma-home-background" src={homeBackground} alt="" aria-hidden="true" />
 
-      <h1 className="figma-home-logo" aria-label="강 새로이">
-        <span className="figma-home-logo__shadow" aria-hidden="true">
-          강 새로이
-        </span>
-        <span className="figma-home-logo__face" aria-hidden="true">
-          강 새로이
-        </span>
+      <h1 className="figma-home-logo">
+        <img src={homeLogo} alt="강 새로이" />
       </h1>
 
       <section className="figma-home-mission" aria-label="게임 안내">
@@ -76,7 +72,7 @@ export default function HomePage() {
           {rivers.map((river) => (
             <Link key={river.id} className="figma-home-river-link" to={`/challenge/${river.id}`}>
               <span
-                className={`figma-home-difficulty${river.id === 'dongcheon' ? ' figma-home-difficulty--hard' : ''}`}
+                className={`figma-home-difficulty figma-home-difficulty--${river.id}`}
               >
                 {river.difficulty} {river.grade}
               </span>

@@ -33,39 +33,18 @@
 .figma-home-logo {
   position: absolute;
   z-index: 4;
-  top: 167px;
+  top: 156px;
   left: 50%;
-  width: 220px;
-  height: 83px;
+  width: 222px;
+  height: 91px;
   margin: 0;
   transform: translateX(-50%);
-  font-family: Pretendard, sans-serif;
-  font-size: 50px;
-  font-weight: 900;
-  letter-spacing: -4px;
-  line-height: 1.5;
-  white-space: nowrap;
-  word-spacing: -5px;
 }
 
-.figma-home-logo > span {
-  position: absolute;
-  left: 0;
-}
-
-.figma-home-logo__shadow {
-  top: 0;
-  left: 5px !important;
-  color: #689e40;
-}
-
-.figma-home-logo__face {
-  top: 5px;
-  background: linear-gradient(180deg, #fff 3%, #ffcc31 100%);
-  background-clip: text;
-  color: transparent;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.figma-home-logo > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .figma-home-mission {
@@ -222,7 +201,7 @@
 .figma-home-difficulty {
   position: absolute;
   top: 13px;
-  left: 25px;
+  left: 45px;
   display: grid;
   min-width: 76px;
   height: 32px;
@@ -237,8 +216,12 @@
   white-space: nowrap;
 }
 
-.figma-home-difficulty--hard {
-  left: 22px;
+.figma-home-difficulty--goejeongcheon {
+  left: 44px;
+}
+
+.figma-home-difficulty--dongcheon {
+  left: 42px;
   min-width: 82px;
 }
 
@@ -302,7 +285,7 @@
 @media (max-width: 359px) {
   .figma-home-logo {
     width: 200px;
-    font-size: 45px;
+    height: 82px;
   }
 
   .figma-home-mission p {
@@ -317,13 +300,17 @@
   }
 
   .figma-home-difficulty {
-    left: 16px;
+    left: 28px;
     min-width: 72px;
     font-size: 16px;
   }
 
-  .figma-home-difficulty--hard {
-    left: 13px;
+  .figma-home-difficulty--goejeongcheon {
+    left: 27px;
+  }
+
+  .figma-home-difficulty--dongcheon {
+    left: 25px;
     min-width: 78px;
   }
 

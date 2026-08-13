@@ -55,7 +55,7 @@ export default function StatisticsPage() {
         <EmptyState
           title="아직 참여 결과가 없습니다."
           description="첫 번째 하천 정책 체험을 완료하고 익명 결과를 남겨 주세요."
-          action={<LinkButton to="/select">첫 도전 시작하기</LinkButton>}
+          action={<LinkButton to="/">첫 도전 시작하기</LinkButton>}
         />
       ) : null}
 
@@ -170,7 +170,7 @@ export default function StatisticsPage() {
         <Button variant="secondary" fullWidth onClick={reload}>
           통계 새로고침
         </Button>
-        <LinkButton to="/select" variant="secondary" fullWidth>
+        <LinkButton to="/" variant="secondary" fullWidth>
           나도 참여하기
         </LinkButton>
         <LinkButton to="/candidate" fullWidth>

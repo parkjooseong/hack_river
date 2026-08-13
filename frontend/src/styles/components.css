@@ -718,7 +718,7 @@ textarea.form-field__control {
 
 .figma-score-item:nth-child(3) {
   top: 49px;
-  left: 42px;
+  left: 33px;
 }
 
 .figma-score-item > span:not(.figma-metric-icon) {
@@ -746,6 +746,10 @@ textarea.form-field__control {
   position: relative;
   width: 29px;
   height: 29px;
+}
+
+.figma-score-item > .figma-metric-icon--management {
+  width: 23px;
 }
 
 .figma-metric-icon--management img {
@@ -950,6 +954,18 @@ textarea.form-field__control {
   height: 128px;
   place-items: center;
   animation: character-state-enter 360ms var(--easing-standard) both;
+}
+
+.figma-result-character .river-character__visual {
+  width: min(230px, 100%);
+  height: 210px;
+}
+
+.figma-result-character__image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 9px 8px rgb(23 33 39 / 16%));
 }
 
 .river-character__background,
@@ -1181,6 +1197,13 @@ textarea.form-field__control {
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
   overflow-wrap: anywhere;
+}
+
+.result-grid .result-grid__grade-change {
+  font-size: clamp(0.75rem, 3.4vw, var(--font-size-sm));
+  letter-spacing: -0.02em;
+  overflow-wrap: normal;
+  white-space: nowrap;
 }
 
 .metric-grid {

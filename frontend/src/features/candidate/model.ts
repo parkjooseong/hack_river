@@ -3,28 +3,16 @@ import type {
   CandidateCommentsQuery,
   CandidateReport,
   CandidateReportQuery,
-  District,
   RiverId,
 } from '../../api'
 
 const RIVER_IDS = new Set<RiverId>(['dongcheon', 'goejeongcheon', 'oncheoncheon'])
-const DISTRICTS = new Set<District>([
-  'geumjeong',
-  'dongnae',
-  'busanjin',
-  'saha',
-  'other',
-  'prefer_not',
-])
 const COMMENT_PAGE_SIZE = 10
 
 export type CandidateSort = 'latest' | 'oldest'
 
 export type CandidateFilterState = {
   riverId: RiverId | ''
-  district: District | ''
-  from: string
-  to: string
   sort: CandidateSort
   page: number
 }
@@ -90,15 +78,6 @@ function isValueIn<T extends string>(values: ReadonlySet<T>, value: string): val
   return values.has(value as T)
 }
 
-function isUtcDateInput(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false
-  }
-
-  const date = new Date(`${value}T00:00:00Z`)
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
-}
-
 function positivePage(value: string | null) {
   if (!value || !/^\d+$/.test(value)) {
     return 1
@@ -110,16 +89,10 @@ function positivePage(value: string | null) {
 
 export function parseCandidateSearchParams(searchParams: URLSearchParams): CandidateFilterState {
   const riverIdValue = searchParams.get('riverId') ?? ''
-  const districtValue = searchParams.get('district') ?? ''
-  const fromValue = searchParams.get('from') ?? ''
-  const toValue = searchParams.get('to') ?? ''
   const sortValue = searchParams.get('sort')
 
   return {
     riverId: isValueIn(RIVER_IDS, riverIdValue) ? riverIdValue : '',
-    district: isValueIn(DISTRICTS, districtValue) ? districtValue : '',
-    from: isUtcDateInput(fromValue) ? fromValue : '',
-    to: isUtcDateInput(toValue) ? toValue : '',
     sort: sortValue === 'oldest' ? 'oldest' : 'latest',
     page: positivePage(searchParams.get('page')),
   }
@@ -129,9 +102,6 @@ export function toCandidateSearchParams(filters: CandidateFilterState) {
   const searchParams = new URLSearchParams()
 
   if (filters.riverId) searchParams.set('riverId', filters.riverId)
-  if (filters.district) searchParams.set('district', filters.district)
-  if (filters.from) searchParams.set('from', filters.from)
-  if (filters.to) searchParams.set('to', filters.to)
   if (filters.sort !== 'latest') searchParams.set('sort', filters.sort)
   if (filters.page > 1) searchParams.set('page', String(filters.page))
 
@@ -141,9 +111,6 @@ export function toCandidateSearchParams(filters: CandidateFilterState) {
 export function toCandidateReportQuery(filters: CandidateFilterState): CandidateReportQuery {
   return {
     ...(filters.riverId ? { riverId: filters.riverId } : {}),
-    ...(filters.district ? { district: filters.district } : {}),
-    ...(filters.from ? { from: filters.from } : {}),
-    ...(filters.to ? { to: filters.to } : {}),
   }
 }
 

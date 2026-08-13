@@ -11,7 +11,7 @@ import {
 } from './model'
 
 describe('candidate model', () => {
-  it('parses shareable filters and ignores invalid URL values', () => {
+  it('하천만 필터로 사용하고 기존 지역·날짜 URL 값은 무시한다', () => {
     const valid = parseCandidateSearchParams(
       new URLSearchParams(
         'riverId=dongcheon&district=busanjin&from=2026-08-01&to=2026-08-31&sort=oldest&page=3',
@@ -23,17 +23,11 @@ describe('candidate model', () => {
 
     expect(valid).toEqual({
       riverId: 'dongcheon',
-      district: 'busanjin',
-      from: '2026-08-01',
-      to: '2026-08-31',
       sort: 'oldest',
       page: 3,
     })
     expect(invalid).toEqual({
       riverId: '',
-      district: '',
-      from: '',
-      to: '',
       sort: 'latest',
       page: 1,
     })

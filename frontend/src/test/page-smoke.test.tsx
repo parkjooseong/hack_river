@@ -59,4 +59,17 @@ describe('페이지 디자인 적용 전 스모크 검증', () => {
 
     expect(html).not.toContain('리포트 필터')
   })
+
+  it('시민 통계의 참여 버튼은 메인 화면으로 이동한다', () => {
+    const html = renderToStaticMarkup(
+      <MemoryRouter initialEntries={['/stats']}>
+        <Routes>
+          <Route path="/stats" element={<StatisticsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(html).toMatch(/href="\/"[^>]*>나도 참여하기<\/a>/)
+    expect(html).not.toContain('href="/select">나도 참여하기</a>')
+  })
 })

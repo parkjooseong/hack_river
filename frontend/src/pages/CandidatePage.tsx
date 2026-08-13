@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-import type { District, RiverId } from '../api'
+import type { RiverId } from '../api'
 import {
   AppHeader,
   Button,
@@ -27,11 +27,10 @@ import { useGameConfig } from '../features/game/useGameConfig'
 
 export default function CandidatePage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [filterError, setFilterError] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const candidateAuth = useCandidateAuth()
   const filters = useMemo(() => parseCandidateSearchParams(searchParams), [searchParams])
-  const filterKey = [filters.riverId, filters.district, filters.from, filters.to].join('|')
+  const filterKey = filters.riverId
   const { state: configState, reload: reloadConfig } = useGameConfig()
   const config =
     configState.status === 'success' || configState.status === 'empty'
@@ -41,7 +40,6 @@ export default function CandidatePage() {
         : undefined
 
   const updateFilters = (nextFilters: CandidateFilterState) => {
-    setFilterError(null)
     setSearchParams(toCandidateSearchParams(nextFilters))
   }
 
@@ -49,23 +47,12 @@ export default function CandidatePage() {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
     const riverIdValue = String(formData.get('riverId') ?? '')
-    const districtValue = String(formData.get('district') ?? '')
-    const from = String(formData.get('from') ?? '')
-    const to = String(formData.get('to') ?? '')
-
-    if (from && to && from > to) {
-      setFilterError('시작일은 종료일보다 늦을 수 없습니다.')
-      return
-    }
 
     const riverId = config?.rivers.some((river) => river.id === riverIdValue)
       ? (riverIdValue as RiverId)
       : ''
-    const district = config?.districts.some((item) => item.id === districtValue)
-      ? (districtValue as District)
-      : ''
 
-    updateFilters({ riverId, district, from, to, sort: filters.sort, page: 1 })
+    updateFilters({ riverId, sort: filters.sort, page: 1 })
   }
 
   const handleSortChange = (sort: CandidateSort) => {
@@ -156,7 +143,7 @@ export default function CandidatePage() {
 
       {authenticatedSession && config ? (
         <>
-          <Card className="candidate-filter-card no-print" title="리포트 필터">
+          <Card className="candidate-filter-card no-print" title="하천 선택">
             <form key={filterKey} className="candidate-filter-form" onSubmit={handleFilterSubmit}>
               <Select
                 name="riverId"
@@ -165,26 +152,9 @@ export default function CandidatePage() {
                 options={config.rivers.map((river) => ({ value: river.id, label: river.name }))}
                 placeholder="전체 하천"
               />
-              <Select
-                name="district"
-                label="지역"
-                defaultValue={filters.district}
-                options={config.districts.map((district) => ({
-                  value: district.id,
-                  label: district.name,
-                }))}
-                placeholder="전체 지역"
-              />
-              <TextInput name="from" type="date" label="시작일(UTC)" defaultValue={filters.from} />
-              <TextInput name="to" type="date" label="종료일(UTC)" defaultValue={filters.to} />
-              {filterError ? (
-                <Notice tone="danger" title="날짜 범위를 확인해 주세요.">
-                  {filterError}
-                </Notice>
-              ) : null}
               <div className="candidate-filter-actions">
                 <Button type="submit" fullWidth>
-                  필터 적용
+                  조회하기
                 </Button>
                 <Button
                   type="button"
@@ -193,15 +163,12 @@ export default function CandidatePage() {
                   onClick={() =>
                     updateFilters({
                       riverId: '',
-                      district: '',
-                      from: '',
-                      to: '',
                       sort: 'latest',
                       page: 1,
                     })
                   }
                 >
-                  필터 초기화
+                  전체 하천 보기
                 </Button>
               </div>
             </form>

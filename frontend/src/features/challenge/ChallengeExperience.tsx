@@ -29,6 +29,7 @@ import type { AppGameConfig, PolicyOption, RiverOption } from '../game/model'
 import { eventChoiceForSimulation, togglePolicy } from '../game/model'
 import { createPolicyOffers, hasDesignedPolicySelection } from './policySelectionModel'
 import { PolicySelectionScreen } from './PolicySelectionScreen'
+import { RIVER_SCENE_ASSETS } from './riverSceneAssets'
 import { clearChallengeSession, readChallengeSession, writeChallengeSession } from './session'
 
 type ChallengeExperienceProps = {
@@ -495,16 +496,23 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
         <Card className="result-hero" title={simulation.resultTitle}>
           <Badge tone={resultTone(simulation)}>{simulation.finalGrade.label}</Badge>
           <p className="result-message">{simulation.resultMessage}</p>
-          <RiverCharacter
-            state={createRiverCharacterState({
-              riverId: river.id,
-              grade: simulation.finalGrade.symbol,
-              simulation,
-              revealResult: true,
-            })}
-            name={river.character}
-            riverName={river.name}
-          />
+          <div
+            className="river-character figma-result-character"
+            role="img"
+            aria-label={`${river.name} 캐릭터 ${river.character}, 게임 종료 시점 ${simulation.finalGrade.label} 등급`}
+            data-river-id={river.id}
+            data-grade={simulation.finalGrade.symbol}
+          >
+            <div className="river-character__visual">
+              <img
+                className="figma-result-character__image"
+                src={RIVER_SCENE_ASSETS[river.id].character}
+                alt=""
+              />
+            </div>
+            <strong>{river.character}</strong>
+            <span>게임 종료 시점 · {simulation.finalGrade.label}</span>
+          </div>
         </Card>
 
         <PageSection title={`당신이 만든 ${river.name}`}>
@@ -519,7 +527,7 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
             </div>
             <div>
               <dt>수질등급</dt>
-              <dd>
+              <dd className="result-grid__grade-change">
                 {simulation.initialGrade.name} → {simulation.finalGrade.name}
               </dd>
             </div>

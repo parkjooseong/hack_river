@@ -2,25 +2,17 @@ import type { CSSProperties } from 'react'
 
 import type { PolicyId } from '../../api'
 import coinCircle from '../../assets/figma/policy-selection/coin-circle.svg'
-import dongcheonBackground from '../../assets/figma/policy-selection/dongcheon-background.png'
-import dongcheonCharacter from '../../assets/figma/policy-selection/dongcheon-character.png'
-import dongcheonGround from '../../assets/figma/policy-selection/dongcheon-ground.svg'
 import ecologyIcon from '../../assets/figma/policy-selection/ecology.svg'
-import goejeongcheonBackground from '../../assets/figma/policy-selection/goejeongcheon-background.png'
-import goejeongcheonCharacter from '../../assets/figma/policy-selection/goejeongcheon-character.png'
-import goejeongcheonGround from '../../assets/figma/policy-selection/goejeongcheon-ground.svg'
 import hammerDetail from '../../assets/figma/policy-selection/hammer-detail.svg'
 import hammerHandle from '../../assets/figma/policy-selection/hammer-handle.svg'
 import hammerHead from '../../assets/figma/policy-selection/hammer-head.svg'
 import headerWave from '../../assets/figma/policy-selection/header-wave.svg'
 import heartIcon from '../../assets/figma/policy-selection/heart.svg'
-import oncheoncheonBackground from '../../assets/figma/policy-selection/oncheoncheon-background.png'
-import oncheoncheonCharacter from '../../assets/figma/policy-selection/oncheoncheon-character.png'
-import oncheoncheonGround from '../../assets/figma/policy-selection/oncheoncheon-ground.svg'
 import progressSprout from '../../assets/figma/policy-selection/progress-sprout.svg'
 import waterDrop from '../../assets/figma/policy-selection/water-drop.svg'
 import type { PolicyOption, RiverOption } from '../game/model'
 import { hasDesignedPolicySelection } from './policySelectionModel'
+import { RIVER_SCENE_ASSETS } from './riverSceneAssets'
 
 const policyLabels: Readonly<Record<PolicyId, string>> = {
   sewer: '하수관',
@@ -31,24 +23,6 @@ const policyLabels: Readonly<Record<PolicyId, string>> = {
   monitoring: '주민 참여',
   walking: '워킹 로드',
 }
-
-const riverScenes = {
-  dongcheon: {
-    background: dongcheonBackground,
-    character: dongcheonCharacter,
-    ground: dongcheonGround,
-  },
-  goejeongcheon: {
-    background: goejeongcheonBackground,
-    character: goejeongcheonCharacter,
-    ground: goejeongcheonGround,
-  },
-  oncheoncheon: {
-    background: oncheoncheonBackground,
-    character: oncheoncheonCharacter,
-    ground: oncheoncheonGround,
-  },
-} as const
 
 type PolicySelectionScreenProps = {
   river: RiverOption
@@ -104,7 +78,7 @@ export function PolicySelectionScreen({
     return null
   }
 
-  const scene = riverScenes[river.id]
+  const scene = RIVER_SCENE_ASSETS[river.id]
   const offeredPolicies = offeredPolicyIds
     .map((policyId) => policies.find((policy) => policy.id === policyId))
     .filter((policy): policy is PolicyOption => policy !== undefined)

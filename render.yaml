@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     region: singapore
-    branch: frontend
+    branch: backend
     rootDir: backend
     buildCommand: pip install -r requirements-dev.txt && python -m unittest discover -s tests -v
     startCommand: python -m river_api --host 0.0.0.0 --port $PORT
@@ -39,7 +39,7 @@ services:
   - type: web
     name: gang-saeroi-web
     runtime: static
-    branch: frontend
+    branch: backend
     rootDir: frontend
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist

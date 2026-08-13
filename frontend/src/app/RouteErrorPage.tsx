@@ -1,4 +1,6 @@
-import { isRouteErrorResponse, Link, useRouteError } from 'react-router-dom'
+import { isRouteErrorResponse, useRouteError } from 'react-router-dom'
+
+import { AppHeader, ErrorState, LinkButton, PageLayout } from '../components'
 
 function getErrorMessage(error: unknown) {
   if (isRouteErrorResponse(error)) {
@@ -13,14 +15,12 @@ export function RouteErrorPage() {
 
   return (
     <div className="app-shell">
-      <main className="page-placeholder" role="alert">
-        <p className="page-placeholder__label">라우트 오류</p>
-        <h1>문제가 발생했습니다.</h1>
-        <p>{getErrorMessage(error)}</p>
-        <div className="page-placeholder__links">
-          <Link to="/">첫 화면으로</Link>
-        </div>
-      </main>
+      <PageLayout header={<AppHeader />} eyebrow="라우트 오류" title="문제가 발생했습니다.">
+        <ErrorState
+          description={getErrorMessage(error)}
+          action={<LinkButton to="/">첫 화면으로</LinkButton>}
+        />
+      </PageLayout>
     </div>
   )
 }

@@ -1,5 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 
+import { AppHeader, Button, ErrorState, PageLayout } from '../components'
+
 type AppErrorBoundaryProps = {
   children: ReactNode
 }
@@ -27,16 +29,12 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
     if (this.state.hasError) {
       return (
         <div className="app-shell">
-          <main className="page-placeholder" role="alert">
-            <p className="page-placeholder__label">오류</p>
-            <h1>화면을 불러오지 못했습니다.</h1>
-            <p>잠시 후 다시 시도해 주세요.</p>
-            <div className="page-placeholder__links">
-              <button type="button" onClick={this.handleReload}>
-                새로고침
-              </button>
-            </div>
-          </main>
+          <PageLayout header={<AppHeader />} eyebrow="오류" title="화면을 불러오지 못했습니다.">
+            <ErrorState
+              description="잠시 후 다시 시도해 주세요."
+              action={<Button onClick={this.handleReload}>새로고침</Button>}
+            />
+          </PageLayout>
         </div>
       )
     }

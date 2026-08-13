@@ -1,25 +1,13 @@
 import type { components, paths } from './schema'
 
-type JsonResponse<
-  Path extends keyof paths,
-  Method extends keyof paths[Path],
-  Status extends number,
-> =
-  NonNullable<paths[Path][Method]> extends { readonly responses: infer Responses }
-    ? Status extends keyof Responses
-      ? Responses[Status] extends { content: { readonly 'application/json': infer Body } }
-        ? Body
-        : never
-      : never
-    : never
-
-export type HealthResponse = JsonResponse<'/health', 'get', 200>
+export type HealthResponse = components['schemas']['HealthResponse']
 export type GameConfig = components['schemas']['GameConfig']
 export type SimulationRequest = components['schemas']['SimulationRequest']
 export type SimulationResult = components['schemas']['SimulationResult']
 export type SubmissionRequest = components['schemas']['SubmissionRequest']
-export type SubmissionResponse = JsonResponse<'/api/responses', 'post', 201>
+export type SubmissionResponse = components['schemas']['SubmissionResponse']
 export type Statistics = components['schemas']['Statistics']
+export type Grade = components['schemas']['Grade']
 export type CandidateReport = components['schemas']['CandidateReport']
 export type CandidateCommentsPage = components['schemas']['CandidateCommentsPage']
 export type CandidateComment = components['schemas']['CandidateComment']

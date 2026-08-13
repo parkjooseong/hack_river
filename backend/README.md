@@ -1,11 +1,12 @@
 # 강 새로이 Backend
 
-기획안의 디자인 비의존 기능을 먼저 구현한 Python 3.12 API입니다. 외부 패키지 없이 실행되며, 서버가 BOD·등급·예산·점수를 다시 계산한 뒤 익명 응답만 저장합니다. 로컬 SQLite와 Supabase 공유 DB를 선택할 수 있습니다.
+기획안의 디자인 비의존 기능을 먼저 구현한 Python 3.12 API입니다. 런타임은 외부 패키지 없이 실행되며, 서버가 BOD·등급·예산·점수를 다시 계산한 뒤 익명 응답만 저장합니다. 로컬 SQLite와 Supabase 공유 DB를 선택할 수 있습니다.
 
 ## 바로 실행
 
 ```bash
 cd backend
+python3 -m pip install -r requirements-dev.txt
 python3 -m unittest discover -s tests -v
 python3 -m river_api
 ```
@@ -21,17 +22,17 @@ python3 scripts/predeploy_check.py --check-database
 
 ## API
 
-| Method | Path | 용도 |
-|---|---|---|
-| `GET` | `/health` | 서버 상태 |
-| `GET` | `/api/game/config` | 하천·정책·등급·선택지 |
-| `POST` | `/api/simulations` | 선택 조합의 서버 계산 |
-| `POST` | `/api/responses` | 동의한 익명 결과 저장 |
-| `GET` | `/api/stats` | 시민 통계 |
-| `GET` | `/api/candidate/report` | 후보자 리포트 집계 |
-| `GET` | `/api/candidate/comments` | 후보자용 시민 의견 페이지 조회 |
+| Method | Path                      | 용도                           |
+| ------ | ------------------------- | ------------------------------ |
+| `GET`  | `/health`                 | 서버 상태                      |
+| `GET`  | `/api/game/config`        | 하천·정책·등급·선택지          |
+| `POST` | `/api/simulations`        | 선택 조합의 서버 계산          |
+| `POST` | `/api/responses`          | 동의한 익명 결과 저장          |
+| `GET`  | `/api/stats`              | 시민 통계                      |
+| `GET`  | `/api/candidate/report`   | 후보자 리포트 집계             |
+| `GET`  | `/api/candidate/comments` | 후보자용 시민 의견 페이지 조회 |
 
-프런트엔드 연동 계약은 `openapi.yaml`에도 정리되어 있습니다.
+프런트엔드 연동의 단일 기준은 `openapi.yaml`입니다. 확정 규칙과 변경 순서는 [API_CONTRACT.md](API_CONTRACT.md)를 확인하세요.
 
 계산 요청 예시:
 

@@ -39,7 +39,6 @@ services:
   - type: web
     name: gang-saeroi-web
     runtime: static
-    plan: free
     branch: frontend
     rootDir: frontend
     buildCommand: npm ci && npm run build

@@ -60,17 +60,19 @@ Vite의 `VITE_` 접두사가 붙은 값은 브라우저 번들에 포함될 수 
 
 ## 명령
 
-| 명령                   | 설명                                   |
-| ---------------------- | -------------------------------------- |
-| `npm run dev`          | 개발 서버 실행                         |
-| `npm run build`        | 타입 검사 후 운영 빌드 생성            |
-| `npm run preview`      | 운영 빌드 미리보기                     |
-| `npm run lint`         | ESLint 검사                            |
-| `npm run typecheck`    | TypeScript 검사                        |
-| `npm run test`         | Vitest 단위 테스트 실행                |
-| `npm run check`        | lint, typecheck, test 순서로 전체 검사 |
-| `npm run format`       | Prettier로 파일 정리                   |
-| `npm run format:check` | Prettier 형식 검사                     |
+| 명령                      | 설명                                     |
+| ------------------------- | ---------------------------------------- |
+| `npm run dev`             | 개발 서버 실행                           |
+| `npm run build`           | 타입 검사 후 운영 빌드 생성              |
+| `npm run preview`         | 운영 빌드 미리보기                       |
+| `npm run lint`            | ESLint 검사                              |
+| `npm run typecheck`       | TypeScript 검사                          |
+| `npm run test`            | Vitest 단위 테스트 실행                  |
+| `npm run check`           | OpenAPI, lint, typecheck, test 전체 검사 |
+| `npm run api:types`       | OpenAPI에서 TypeScript 타입 다시 생성    |
+| `npm run api:types:check` | OpenAPI와 생성된 타입의 일치 여부 검사   |
+| `npm run format`          | Prettier로 파일 정리                     |
+| `npm run format:check`    | Prettier 형식 검사                       |
 
 ## 라우트
 
@@ -94,6 +96,73 @@ Vite의 `VITE_` 접두사가 붙은 값은 브라우저 번들에 포함될 수 
 - 모바일 안전 영역 적용
 
 현재 스타일은 구조 확인을 위한 임시값이며 최종 디자인이 아닙니다.
+
+## API 계층
+
+`src/api/`가 백엔드 통신을 담당합니다. 화면에서는 URL이나 `fetch`를 직접 사용하지 않고 `riverApi`의 기능 단위 함수를 사용합니다.
+
+```ts
+import { isApiError, riverApi } from './api'
+
+try {
+  const config = await riverApi.getGameConfig()
+  console.log(config.serviceName)
+} catch (error) {
+  if (isApiError(error)) {
+    console.log(error.userMessage, error.requestId)
+  }
+}
+```
+
+제공하는 함수는 다음과 같습니다.
+
+- `getHealth()`
+- `getGameConfig()`
+- `simulate(request)`
+- `submitResponse(request)`
+- `getStatistics()`
+- `getCandidateReport(query)`
+- `getCandidateComments(query)`
+
+시뮬레이션 요청은 새 요청이 시작되면 이전 요청을 취소합니다. 응답 제출은 처리 중인 요청을 공유해 중복 전송을 막습니다.
+
+API 오류는 다음 정보를 가진 `ApiError`로 변환됩니다.
+
+- `kind`: HTTP, 네트워크, 타임아웃, 취소, 잘못된 응답 구분
+- `code`: 백엔드 또는 프론트 오류 코드
+- `userMessage`: 내부 정보를 숨긴 사용자용 메시지
+- `status`: HTTP 상태
+- `requestId`: 백엔드 로그 문의용 요청 ID
+- `details`: 검증 오류 상세
+
+### OpenAPI 타입
+
+`src/api/schema.d.ts`는 `backend/openapi.yaml`에서 자동 생성되므로 직접 수정하지 않습니다. 백엔드 계약이 변경되면 다음 명령을 실행합니다.
+
+```bash
+npm run api:types
+npm run check
+```
+
+생성된 타입을 갱신하지 않고 OpenAPI만 변경하면 `npm run api:types:check`가 실패합니다.
+
+### Mock API
+
+백엔드 없이 화면을 개발할 때는 `src/api/mock`의 고정 응답을 사용할 수 있습니다.
+
+```ts
+import { ApiClient, RiverApi } from './api'
+import { createMockFetch } from './api/mock'
+
+const mockApi = new RiverApi(
+  new ApiClient({
+    baseUrl: 'http://mock.local',
+    fetch: createMockFetch(),
+  }),
+)
+```
+
+`createMockFetch`의 `failures`와 `delayMs` 옵션으로 검증 오류, DB 장애, 서버 오류, 로딩과 타임아웃 화면도 재현할 수 있습니다.
 
 ## 백엔드 함께 실행하기
 

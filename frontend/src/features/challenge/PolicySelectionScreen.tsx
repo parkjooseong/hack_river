@@ -12,7 +12,7 @@ import progressSprout from '../../assets/figma/policy-selection/progress-sprout.
 import waterDrop from '../../assets/figma/policy-selection/water-drop.svg'
 import type { PolicyOption, RiverOption } from '../game/model'
 import { hasDesignedPolicySelection } from './policySelectionModel'
-import { RIVER_SCENE_ASSETS } from './riverSceneAssets'
+import { resolveRiverSceneCharacter, RIVER_SCENE_ASSETS } from './riverSceneAssets'
 
 const policyLabels: Readonly<Record<PolicyId, string>> = {
   sewer: '하수관',
@@ -79,6 +79,7 @@ export function PolicySelectionScreen({
   }
 
   const scene = RIVER_SCENE_ASSETS[river.id]
+  const character = resolveRiverSceneCharacter(river.id, currentGrade.level)
   const offeredPolicies = offeredPolicyIds
     .map((policyId) => policies.find((policy) => policy.id === policyId))
     .filter((policy): policy is PolicyOption => policy !== undefined)
@@ -103,9 +104,11 @@ export function PolicySelectionScreen({
         <img className="figma-policy-scene__ground" src={scene.ground} alt="" />
         <img
           className="figma-policy-scene__character"
-          src={scene.character}
+          src={character.src}
           alt=""
           data-grade={currentGrade.symbol}
+          data-character-mood={character.mood}
+          data-water-quality-stage={character.waterQualityStage}
         />
       </div>
       <p className="visually-hidden" aria-live="polite">

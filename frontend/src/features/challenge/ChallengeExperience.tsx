@@ -29,7 +29,7 @@ import type { AppGameConfig, PolicyOption, RiverOption } from '../game/model'
 import { eventChoiceForSimulation, togglePolicy } from '../game/model'
 import { createPolicyOffers, hasDesignedPolicySelection } from './policySelectionModel'
 import { PolicySelectionScreen } from './PolicySelectionScreen'
-import { RIVER_SCENE_ASSETS } from './riverSceneAssets'
+import { resolveRiverSceneCharacter } from './riverSceneAssets'
 import { clearChallengeSession, readChallengeSession, writeChallengeSession } from './session'
 
 type ChallengeExperienceProps = {
@@ -495,7 +495,7 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
             <div className="river-character__visual">
               <img
                 className="figma-result-character__image"
-                src={RIVER_SCENE_ASSETS[river.id].character}
+                src={resolveRiverSceneCharacter(river.id, simulation.finalGrade.level).src}
                 alt=""
               />
             </div>

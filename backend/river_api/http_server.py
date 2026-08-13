@@ -24,6 +24,18 @@ def _query_parameters(path: str) -> dict[str, list[str]]:
     return parse_qs(urlsplit(path).query, keep_blank_values=True)
 
 
+def _bearer_token(value: str | None) -> str | None:
+    if not value:
+        return None
+    scheme, separator, token = value.strip().partition(" ")
+    if separator != " " or scheme.casefold() != "bearer":
+        return None
+    token = token.strip()
+    if not token or any(character.isspace() for character in token):
+        return None
+    return token
+
+
 def create_handler(application: Application, allowed_origins: set[str]):
     class RequestHandler(BaseHTTPRequestHandler):
         server_version = "RiverAPI"
@@ -129,7 +141,7 @@ def create_handler(application: Application, allowed_origins: set[str]):
                 self.send_header("Access-Control-Expose-Headers", "X-Request-ID")
                 self.send_header("Vary", "Origin")
             self.send_header("Access-Control-Allow-Methods", allow)
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
             self.send_header("Access-Control-Max-Age", "600")
             self.end_headers()
 
@@ -141,6 +153,7 @@ def create_handler(application: Application, allowed_origins: set[str]):
                 path,
                 request_id=request_id,
                 query=_query_parameters(self.path),
+                access_token=_bearer_token(self.headers.get("Authorization")),
             )
             headers = None
             if status == 405:

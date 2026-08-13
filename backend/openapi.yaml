@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: 강 새로이 API
-  version: 0.5.0
+  version: 1.1.0
   description: |
     부산 하천 정책 체험용 API입니다. BOD 변화량은 게임용 데모 값이며
     실제 수질 개선을 예측하거나 보장하지 않습니다. 모든 HTTP 응답은
@@ -13,30 +13,28 @@ paths:
     get:
       summary: 서버 상태 확인
       responses:
-        '200':
+        "200":
           description: 정상
+          headers:
+            X-Request-ID: { $ref: "#/components/headers/RequestId" }
           content:
             application/json:
-              schema:
-                type: object
-                required: [status, service, name]
-                properties:
-                  status: {type: string, example: ok}
-                  service: {type: string, example: gang-saeroi-api}
-                  name: {type: string, example: 강 새로이}
-        '405': {$ref: '#/components/responses/MethodNotAllowed'}
-        '500': {$ref: '#/components/responses/InternalServerError'}
+              schema: { $ref: "#/components/schemas/HealthResponse" }
+        "405": { $ref: "#/components/responses/MethodNotAllowed" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
   /api/game/config:
     get:
       summary: 게임 설정 조회
       responses:
-        '200':
+        "200":
           description: 하천, 정책, 등급, 설문 선택지
+          headers:
+            X-Request-ID: { $ref: "#/components/headers/RequestId" }
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/GameConfig'}
-        '405': {$ref: '#/components/responses/MethodNotAllowed'}
-        '500': {$ref: '#/components/responses/InternalServerError'}
+              schema: { $ref: "#/components/schemas/GameConfig" }
+        "405": { $ref: "#/components/responses/MethodNotAllowed" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
   /api/simulations:
     post:
       summary: 정책 조합 계산
@@ -44,18 +42,20 @@ paths:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/SimulationRequest'}
+            schema: { $ref: "#/components/schemas/SimulationRequest" }
       responses:
-        '200':
+        "200":
           description: 서버가 계산한 결과
+          headers:
+            X-Request-ID: { $ref: "#/components/headers/RequestId" }
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/SimulationResult'}
-        '400': {$ref: '#/components/responses/ValidationError'}
-        '405': {$ref: '#/components/responses/MethodNotAllowed'}
-        '413': {$ref: '#/components/responses/PayloadTooLarge'}
-        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
-        '500': {$ref: '#/components/responses/InternalServerError'}
+              schema: { $ref: "#/components/schemas/SimulationResult" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "405": { $ref: "#/components/responses/MethodNotAllowed" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
   /api/responses:
     post:
       summary: 익명 참여 결과 저장
@@ -64,240 +64,378 @@ paths:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/SubmissionRequest'}
+            schema: { $ref: "#/components/schemas/SubmissionRequest" }
       responses:
-        '201':
+        "201":
           description: 저장 완료
+          headers:
+            X-Request-ID: { $ref: "#/components/headers/RequestId" }
           content:
             application/json:
-              schema:
-                type: object
-                required: [id, createdAt, result]
-                properties:
-                  id: {type: string, format: uuid}
-                  createdAt: {type: string, format: date-time}
-                  result: {$ref: '#/components/schemas/SimulationResult'}
-        '400': {$ref: '#/components/responses/ValidationError'}
-        '405': {$ref: '#/components/responses/MethodNotAllowed'}
-        '413': {$ref: '#/components/responses/PayloadTooLarge'}
-        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
-        '500': {$ref: '#/components/responses/InternalServerError'}
-        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
+              schema: { $ref: "#/components/schemas/SubmissionResponse" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "405": { $ref: "#/components/responses/MethodNotAllowed" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedMediaType" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
+        "503": { $ref: "#/components/responses/DatabaseUnavailable" }
   /api/stats:
     get:
       summary: 시민 참여 통계 조회
       responses:
-        '200':
+        "200":
           description: 전체, 하천별, 정책별 집계와 익명 의견
+          headers:
+            X-Request-ID: { $ref: "#/components/headers/RequestId" }
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/Statistics'}
-        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
-        '405': {$ref: '#/components/responses/MethodNotAllowed'}
-        '500': {$ref: '#/components/responses/InternalServerError'}
+              schema: { $ref: "#/components/schemas/Statistics" }
+        "503": { $ref: "#/components/responses/DatabaseUnavailable" }
+        "405": { $ref: "#/components/responses/MethodNotAllowed" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
   /api/candidate/report:
     get:
       summary: 후보자용 정책 리포트 데이터 조회
       description: 날짜 필터는 저장된 UTC 날짜를 기준으로 시작일과 종료일을 모두 포함합니다.
+      security:
+        - candidateBearerAuth: []
       parameters:
-        - {$ref: '#/components/parameters/CandidateRiverId'}
-        - {$ref: '#/components/parameters/CandidateDistrict'}
-        - {$ref: '#/components/parameters/CandidateFromDate'}
-        - {$ref: '#/components/parameters/CandidateToDate'}
+        - { $ref: "#/components/parameters/CandidateRiverId" }
+        - { $ref: "#/components/parameters/CandidateDistrict" }
+        - { $ref: "#/components/parameters/CandidateFromDate" }
+        - { $ref: "#/components/parameters/CandidateToDate" }
       responses:
-        '200':
+        "200":
           description: 인쇄용 화면에 사용할 리포트 집계
+          headers:
+            X-Request-ID: { $ref: "#/components/headers/RequestId" }
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/CandidateReport'}
-        '400': {$ref: '#/components/responses/ValidationError'}
-        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
-        '405': {$ref: '#/components/responses/MethodNotAllowed'}
-        '500': {$ref: '#/components/responses/InternalServerError'}
+              schema: { $ref: "#/components/schemas/CandidateReport" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AccessDenied" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+        "405": { $ref: "#/components/responses/MethodNotAllowed" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
   /api/candidate/comments:
     get:
       summary: 후보자용 시민 의견 목록 조회
       description: 내용이 있는 익명 의견만 필터링해 페이지 단위로 제공합니다.
+      security:
+        - candidateBearerAuth: []
       parameters:
-        - {$ref: '#/components/parameters/CandidateRiverId'}
-        - {$ref: '#/components/parameters/CandidateDistrict'}
-        - {$ref: '#/components/parameters/CandidateFromDate'}
-        - {$ref: '#/components/parameters/CandidateToDate'}
+        - { $ref: "#/components/parameters/CandidateRiverId" }
+        - { $ref: "#/components/parameters/CandidateDistrict" }
+        - { $ref: "#/components/parameters/CandidateFromDate" }
+        - { $ref: "#/components/parameters/CandidateToDate" }
         - name: page
           in: query
-          schema: {type: integer, minimum: 1, default: 1}
+          schema: { type: integer, minimum: 1, default: 1 }
         - name: pageSize
           in: query
-          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
         - name: sort
           in: query
-          schema: {type: string, enum: [latest, oldest], default: latest}
+          schema: { type: string, enum: [latest, oldest], default: latest }
       responses:
-        '200':
+        "200":
           description: 필터와 정렬이 적용된 의견 페이지
+          headers:
+            X-Request-ID: { $ref: "#/components/headers/RequestId" }
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/CandidateCommentsPage'}
-        '400': {$ref: '#/components/responses/ValidationError'}
-        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
-        '405': {$ref: '#/components/responses/MethodNotAllowed'}
-        '500': {$ref: '#/components/responses/InternalServerError'}
+              schema: { $ref: "#/components/schemas/CandidateCommentsPage" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AccessDenied" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+        "405": { $ref: "#/components/responses/MethodNotAllowed" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
 components:
+  securitySchemes:
+    candidateBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Supabase JWT
+  headers:
+    RequestId:
+      description: 서버 로그와 응답을 연결하는 요청 ID
+      schema: { type: string, pattern: "^[0-9a-f]{32}$" }
   parameters:
     CandidateRiverId:
       name: riverId
       in: query
-      schema:
-        type: string
-        enum: [dongcheon, goejeongcheon, oncheoncheon]
+      schema: { $ref: "#/components/schemas/RiverId" }
     CandidateDistrict:
       name: district
       in: query
-      schema:
-        type: string
-        enum: [geumjeong, dongnae, busanjin, saha, other, prefer_not]
+      schema: { $ref: "#/components/schemas/DistrictId" }
     CandidateFromDate:
       name: from
       in: query
       description: UTC 기준 시작일이며 해당 날짜를 포함합니다.
-      schema: {type: string, format: date}
+      schema: { type: string, format: date }
     CandidateToDate:
       name: to
       in: query
       description: UTC 기준 종료일이며 해당 날짜를 포함합니다.
-      schema: {type: string, format: date}
+      schema: { type: string, format: date }
   responses:
     ValidationError:
-      description: 입력값 오류
+      description: 입력값 또는 JSON 본문 오류
+      headers:
+        X-Request-ID: { $ref: "#/components/headers/RequestId" }
       content:
         application/json:
-          schema:
-            type: object
-            required: [error]
-            properties:
-              error:
-                type: object
-                required: [code, message, details, requestId]
-                properties:
-                  code:
-                    type: string
-                    enum: [VALIDATION_ERROR, PERSONAL_INFORMATION_NOT_ALLOWED]
-                  message: {type: string}
-                  details:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        field: {type: string}
-                        reason: {type: string}
-                  requestId: {type: string, pattern: '^[0-9a-f]{32}$'}
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
     DatabaseUnavailable:
       description: 공유 데이터베이스 일시 장애
+      headers:
+        X-Request-ID: { $ref: "#/components/headers/RequestId" }
       content:
         application/json:
-          schema:
-            type: object
-            required: [error]
-            properties:
-              error:
-                type: object
-                required: [code, message, details, requestId]
-                properties:
-                  code: {type: string, enum: [DATABASE_UNAVAILABLE]}
-                  message: {type: string}
-                  details: {type: array, maxItems: 0}
-                  requestId: {type: string, pattern: '^[0-9a-f]{32}$'}
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    AuthenticationRequired:
+      description: 후보자 로그인이 필요하거나 세션이 만료됨
+      headers:
+        X-Request-ID: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    AccessDenied:
+      description: 로그인한 계정에 후보자 대시보드 권한이 없음
+      headers:
+        X-Request-ID: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    ServiceUnavailable:
+      description: 공유 데이터베이스 또는 인증 서비스의 일시 장애
+      headers:
+        X-Request-ID: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
     MethodNotAllowed:
       description: 지원하지 않는 HTTP 메서드
+      headers:
+        X-Request-ID: { $ref: "#/components/headers/RequestId" }
       content:
         application/json:
-          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
     PayloadTooLarge:
       description: 요청 본문 크기 제한 초과
+      headers:
+        X-Request-ID: { $ref: "#/components/headers/RequestId" }
       content:
         application/json:
-          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
     UnsupportedMediaType:
       description: application/json이 아닌 요청
+      headers:
+        X-Request-ID: { $ref: "#/components/headers/RequestId" }
       content:
         application/json:
-          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
     InternalServerError:
       description: 예상하지 못한 서버 오류
+      headers:
+        X-Request-ID: { $ref: "#/components/headers/RequestId" }
       content:
         application/json:
-          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
   schemas:
+    RiverId:
+      type: string
+      enum: [dongcheon, goejeongcheon, oncheoncheon]
+    PolicyId:
+      type: string
+      enum:
+        [sewer, treatment, sourceBlock, ecology, sensor, monitoring, walking]
+    DirectPolicyId:
+      type: string
+      enum: [sewer, treatment, sourceBlock, ecology]
+    EventChoiceId:
+      type: string
+      enum: [INVESTIGATE, WAIT]
+    TopPriorityId:
+      type: string
+      enum:
+        [
+          source_control,
+          treatment,
+          sensor,
+          ecology,
+          walking,
+          citizen_monitoring,
+        ]
+    DistrictId:
+      type: string
+      enum: [geumjeong, dongnae, busanjin, saha, other, prefer_not]
+    PledgeArea:
+      type: string
+      enum: [CLEAN UP, SMART UP, WALK UP]
+    GradeSymbol:
+      type: string
+      enum: [Ia, Ib, II, III, IV, V, VI]
+    ResultStatus:
+      type: string
+      enum: [TRY_AGAIN, MISSION_COMPLETE, PERFECT_CLEAR]
+    CompletionReason:
+      type: string
+      enum: [WATER_GOAL, BUDGET_EXHAUSTED]
+      nullable: true
+    PlayerProfileId:
+      type: string
+      enum: [WATER_QUALITY, ECOLOGY, CITIZEN, SMART_MANAGEMENT, BALANCED]
+    PlayerProfileMetric:
+      type: string
+      enum: [waterQuality, ecology, citizen, monitoring, balanced]
+    ErrorDetail:
+      type: object
+      additionalProperties: false
+      required: [field, reason]
+      properties:
+        field: { type: string }
+        reason: { type: string }
+        allowed:
+          type: array
+          items: { type: string }
     ErrorEnvelope:
       type: object
+      additionalProperties: false
       required: [error]
       properties:
         error:
           type: object
+          additionalProperties: false
           required: [code, message, details, requestId]
           properties:
-            code: {type: string}
-            message: {type: string}
-            details: {type: array, items: {type: object, additionalProperties: true}}
-            requestId: {type: string, pattern: '^[0-9a-f]{32}$'}
+            code:
+              type: string
+              enum:
+                - NOT_FOUND
+                - METHOD_NOT_ALLOWED
+                - VALIDATION_ERROR
+                - PERSONAL_INFORMATION_NOT_ALLOWED
+                - DATABASE_UNAVAILABLE
+                - CANDIDATE_AUTH_REQUIRED
+                - CANDIDATE_ACCESS_DENIED
+                - CANDIDATE_AUTH_UNAVAILABLE
+                - INTERNAL_SERVER_ERROR
+                - UNSUPPORTED_MEDIA_TYPE
+                - INVALID_LENGTH
+                - EMPTY_BODY
+                - PAYLOAD_TOO_LARGE
+                - INVALID_JSON
+            message: { type: string }
+            details:
+              type: array
+              items: { $ref: "#/components/schemas/ErrorDetail" }
+            requestId: { type: string, pattern: "^[0-9a-f]{32}$" }
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, service, name]
+      properties:
+        status: { type: string, enum: [ok] }
+        service: { type: string, enum: [gang-saeroi-api] }
+        name: { type: string, enum: [강 새로이] }
     SimulationRequest:
       type: object
       additionalProperties: false
       description: 정책이 두 개 이상이고 eventChoice를 생략하면 event.status가 PENDING으로 반환됩니다.
       required: [riverId, policyIds]
       properties:
-        riverId:
-          type: string
-          enum: [dongcheon, goejeongcheon, oncheoncheon]
+        riverId: { $ref: "#/components/schemas/RiverId" }
         policyIds:
           type: array
           minItems: 1
           uniqueItems: true
-          items:
-            type: string
-            enum: [sewer, treatment, sourceBlock, ecology, sensor, monitoring, walking]
-        eventChoice:
-          type: string
-          enum: [INVESTIGATE, WAIT]
+          items: { $ref: "#/components/schemas/PolicyId" }
+        eventChoice: { $ref: "#/components/schemas/EventChoiceId" }
     SubmissionRequest:
       type: object
       additionalProperties: false
       description: 정책을 두 개 이상 선택한 최종 제출에는 eventChoice가 필요합니다.
       required: [riverId, policyIds, topPriority, district, consentToAggregate]
       properties:
-        riverId:
-          type: string
-          enum: [dongcheon, goejeongcheon, oncheoncheon]
+        riverId: { $ref: "#/components/schemas/RiverId" }
         policyIds:
           type: array
           minItems: 1
           uniqueItems: true
-          items:
-            type: string
-            enum: [sewer, treatment, sourceBlock, ecology, sensor, monitoring, walking]
-        eventChoice:
-          type: string
-          enum: [INVESTIGATE, WAIT]
-        topPriority:
-          type: string
-          enum: [source_control, treatment, sensor, ecology, walking, citizen_monitoring]
-        district:
-          type: string
-          enum: [geumjeong, dongnae, busanjin, saha, other, prefer_not]
+          items: { $ref: "#/components/schemas/PolicyId" }
+        eventChoice: { $ref: "#/components/schemas/EventChoiceId" }
+        topPriority: { $ref: "#/components/schemas/TopPriorityId" }
+        district: { $ref: "#/components/schemas/DistrictId" }
         comment:
           type: string
           maxLength: 200
           description: 이름, 전화번호, 이메일, 주민등록번호, 정확한 주소와 HTML 태그를 포함할 수 없습니다.
-        consentToAggregate: {type: boolean, enum: [true]}
+        consentToAggregate: { type: boolean, enum: [true] }
     Grade:
       type: object
-      required: [symbol, name, label, level]
+      additionalProperties: false
+      required: [symbol, name, label, maxBod, level]
       properties:
-        symbol: {type: string, enum: [Ia, Ib, II, III, IV, V, VI]}
-        name: {type: string}
-        label: {type: string}
-        maxBod: {type: number, nullable: true}
-        level: {type: integer, minimum: 0, maximum: 6}
+        symbol: { $ref: "#/components/schemas/GradeSymbol" }
+        name: { type: string }
+        label: { type: string }
+        maxBod: { type: number, nullable: true }
+        level: { type: integer, minimum: 0, maximum: 6 }
+    ScoreEffects:
+      type: object
+      additionalProperties: false
+      required: [ecology, citizen, monitoring]
+      properties:
+        ecology: { type: integer, minimum: -100, maximum: 100 }
+        citizen: { type: integer, minimum: -100, maximum: 100 }
+        monitoring: { type: integer, minimum: -100, maximum: 100 }
+    Policy:
+      type: object
+      additionalProperties: false
+      required: [id, name, cost, scoreEffects, pledgeArea, directlyReducesBod]
+      properties:
+        id: { $ref: "#/components/schemas/PolicyId" }
+        name: { type: string }
+        cost: { type: integer, minimum: 0, maximum: 100 }
+        scoreEffects: { $ref: "#/components/schemas/ScoreEffects" }
+        pledgeArea: { $ref: "#/components/schemas/PledgeArea" }
+        directlyReducesBod: { type: boolean }
+    PolicyEffects:
+      type: object
+      additionalProperties: false
+      required: [sewer, treatment, sourceBlock, ecology]
+      properties:
+        sewer: { type: number, minimum: 0 }
+        treatment: { type: number, minimum: 0 }
+        sourceBlock: { type: number, minimum: 0 }
+        ecology: { type: number, minimum: 0 }
+    River:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          name,
+          character,
+          initialBod,
+          initialGrade,
+          difficulty,
+          policyEffects,
+          isDemoData,
+        ]
+      properties:
+        id: { $ref: "#/components/schemas/RiverId" }
+        name: { type: string }
+        character: { type: string }
+        initialBod: { type: number, minimum: 0 }
+        initialGrade: { $ref: "#/components/schemas/Grade" }
+        difficulty: { type: string, enum: [hard, normal, easy] }
+        policyEffects: { $ref: "#/components/schemas/PolicyEffects" }
+        isDemoData: { type: boolean, enum: [true] }
     Badge:
       type: object
       additionalProperties: false
@@ -312,8 +450,200 @@ components:
             - CITIZEN_EMPATHY
             - SMART_MANAGEMENT
             - BUDGET_SAVER
-        name: {type: string}
-        description: {type: string}
+        name: { type: string }
+        description: { type: string }
+    ResultPresentation:
+      type: object
+      additionalProperties: false
+      required: [id, title, message]
+      properties:
+        id: { $ref: "#/components/schemas/ResultStatus" }
+        title: { type: string }
+        message: { type: string }
+    NamedPriority:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { $ref: "#/components/schemas/TopPriorityId" }
+        name: { type: string }
+    NamedDistrict:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { $ref: "#/components/schemas/DistrictId" }
+        name: { type: string }
+    SensorVariant:
+      type: object
+      additionalProperties: false
+      required: [requiredPolicyId, cost, scoreEffects]
+      properties:
+        requiredPolicyId: { type: string, enum: [sensor] }
+        cost: { type: integer, enum: [0] }
+        scoreEffects: { $ref: "#/components/schemas/ScoreEffects" }
+    InvestigateEventChoice:
+      type: object
+      additionalProperties: false
+      required: [id, name, baseCost, baseScoreEffects, sensorVariant]
+      properties:
+        id: { type: string, enum: [INVESTIGATE] }
+        name: { type: string }
+        baseCost: { type: integer, enum: [5] }
+        baseScoreEffects: { $ref: "#/components/schemas/ScoreEffects" }
+        sensorVariant: { $ref: "#/components/schemas/SensorVariant" }
+    WaitEventChoice:
+      type: object
+      additionalProperties: false
+      required: [id, name, baseCost, baseScoreEffects, temporaryCharacterMood]
+      properties:
+        id: { type: string, enum: [WAIT] }
+        name: { type: string }
+        baseCost: { type: integer, enum: [0] }
+        baseScoreEffects: { $ref: "#/components/schemas/ScoreEffects" }
+        temporaryCharacterMood: { type: string, enum: [WORRIED] }
+    GameEvent:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, triggerPolicyCount, choices]
+      properties:
+        id: { type: string, enum: [DOWNSTREAM_ODOR_SURGE] }
+        name: { type: string }
+        description: { type: string }
+        triggerPolicyCount: { type: integer, enum: [2] }
+        choices:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            oneOf:
+              - { $ref: "#/components/schemas/InvestigateEventChoice" }
+              - { $ref: "#/components/schemas/WaitEventChoice" }
+    CommentRules:
+      type: object
+      additionalProperties: false
+      required: [maxLength, privacyNotice, collectsPersonalInformation]
+      properties:
+        maxLength: { type: integer, enum: [200] }
+        privacyNotice: { type: string }
+        collectsPersonalInformation: { type: boolean, enum: [false] }
+    GameConfig:
+      type: object
+      additionalProperties: false
+      required:
+        - serviceName
+        - version
+        - maxBudget
+        - minimumBod
+        - baseScore
+        - successThresholdBod
+        - perfectThresholdBod
+        - grades
+        - rivers
+        - policies
+        - events
+        - badgeDefinitions
+        - resultStatuses
+        - priorities
+        - districts
+        - commentRules
+        - isDemoData
+        - demoDataNotice
+        - disclaimer
+      properties:
+        serviceName: { type: string, enum: [강 새로이] }
+        version: { type: string }
+        maxBudget: { type: integer, enum: [100] }
+        minimumBod: { type: number, enum: [0.8] }
+        baseScore: { type: integer, enum: [30] }
+        successThresholdBod: { type: number, enum: [2.0] }
+        perfectThresholdBod: { type: number, enum: [1.0] }
+        grades:
+          type: array
+          minItems: 7
+          maxItems: 7
+          items: { $ref: "#/components/schemas/Grade" }
+        rivers:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: { $ref: "#/components/schemas/River" }
+        policies:
+          type: array
+          minItems: 7
+          maxItems: 7
+          items: { $ref: "#/components/schemas/Policy" }
+        events:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items: { $ref: "#/components/schemas/GameEvent" }
+        badgeDefinitions:
+          type: array
+          minItems: 6
+          maxItems: 6
+          items: { $ref: "#/components/schemas/Badge" }
+        resultStatuses:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: { $ref: "#/components/schemas/ResultPresentation" }
+        priorities:
+          type: array
+          minItems: 6
+          maxItems: 6
+          items: { $ref: "#/components/schemas/NamedPriority" }
+        districts:
+          type: array
+          minItems: 6
+          maxItems: 6
+          items: { $ref: "#/components/schemas/NamedDistrict" }
+        commentRules: { $ref: "#/components/schemas/CommentRules" }
+        isDemoData: { type: boolean, enum: [true] }
+        demoDataNotice: { type: string }
+        disclaimer: { type: string }
+    RiverIdentity:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { $ref: "#/components/schemas/RiverId" }
+        name: { type: string }
+    SimulationScores:
+      type: object
+      additionalProperties: false
+      required: [ecology, citizen, monitoring]
+      properties:
+        ecology: { type: integer, minimum: 0, maximum: 100 }
+        citizen: { type: integer, minimum: 0, maximum: 100 }
+        monitoring: { type: integer, minimum: 0, maximum: 100 }
+    CompletionState:
+      type: object
+      additionalProperties: false
+      required: [canFinish, reason, budgetExhausted]
+      properties:
+        canFinish: { type: boolean }
+        reason: { $ref: "#/components/schemas/CompletionReason" }
+        budgetExhausted: { type: boolean }
+    PlayerProfileScores:
+      type: object
+      additionalProperties: false
+      required: [waterQuality, ecology, citizen, monitoring]
+      properties:
+        waterQuality: { type: integer, minimum: 0, maximum: 100 }
+        ecology: { type: integer, minimum: 0, maximum: 100 }
+        citizen: { type: integer, minimum: 0, maximum: 100 }
+        monitoring: { type: integer, minimum: 0, maximum: 100 }
+    PlayerProfile:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, primaryMetric, scores]
+      properties:
+        id: { $ref: "#/components/schemas/PlayerProfileId" }
+        name: { type: string }
+        description: { type: string }
+        primaryMetric: { $ref: "#/components/schemas/PlayerProfileMetric" }
+        scores: { $ref: "#/components/schemas/PlayerProfileScores" }
     Recommendation:
       type: object
       additionalProperties: false
@@ -330,175 +660,17 @@ components:
         - expectedPerfectClear
         - expectedRemainingBudget
       properties:
-        policyId:
-          type: string
-          enum: [sewer, treatment, sourceBlock, ecology]
-        policyName: {type: string}
-        cost: {type: integer, minimum: 0, maximum: 100}
-        reason: {type: string}
-        expectedFinalBod: {type: number, minimum: 0.8}
-        expectedFinalGrade:
-          type: string
-          enum: [Ia, Ib, II, III, IV, V, VI]
-        expectedFinalGradeLabel: {type: string}
-        expectedResultStatus:
-          type: string
-          enum: [TRY_AGAIN, MISSION_COMPLETE, PERFECT_CLEAR]
-        expectedMissionSuccess: {type: boolean}
-        expectedPerfectClear: {type: boolean}
-        expectedRemainingBudget: {type: integer, minimum: 0, maximum: 100}
-    SimulationResult:
-      type: object
-      additionalProperties: true
-      required:
-        - river
-        - character
-        - initialBod
-        - finalBod
-        - initialGrade
-        - finalGrade
-        - resultStatus
-        - resultTitle
-        - resultMessage
-        - missionSuccess
-        - perfectClear
-        - policyOrder
-        - budgetUsed
-        - remainingBudget
-        - scores
-        - event
-        - badges
-        - strengths
-        - recommendations
-      properties:
-        river:
-          type: object
-          properties:
-            id: {type: string}
-            name: {type: string}
-        character: {type: string}
-        initialBod: {type: number}
-        finalBod: {type: number, minimum: 0.8}
-        bodReduction: {type: number, minimum: 0}
-        initialGrade: {$ref: '#/components/schemas/Grade'}
-        finalGrade: {$ref: '#/components/schemas/Grade'}
-        gradeImprovement: {type: integer, minimum: 0, maximum: 6}
-        resultStatus:
-          type: string
-          enum: [TRY_AGAIN, MISSION_COMPLETE, PERFECT_CLEAR]
-        resultTitle: {type: string}
-        resultMessage: {type: string}
-        missionSuccess: {type: boolean}
-        perfectClear: {type: boolean}
-        remainingBodToMission: {type: number, minimum: 0}
-        selectedPolicies:
-          type: array
-          items: {type: object, additionalProperties: true}
-        policyOrder:
-          type: array
-          items: {type: string}
-        budgetUsed: {type: integer, maximum: 100}
-        remainingBudget: {type: integer, minimum: 0}
-        scores:
-          type: object
-          properties:
-            ecology: {type: integer, minimum: 0, maximum: 100}
-            citizen: {type: integer, minimum: 0, maximum: 100}
-            monitoring: {type: integer, minimum: 0, maximum: 100}
-        event: {$ref: '#/components/schemas/EventResult'}
-        selectedPledgeAreas:
-          type: array
-          uniqueItems: true
-          items: {type: string, enum: [CLEAN UP, SMART UP, WALK UP]}
-        pledgeMatchRate: {type: integer, minimum: 0, maximum: 100}
-        badges:
-          type: array
-          uniqueItems: true
-          items: {$ref: '#/components/schemas/Badge'}
-        strengths:
-          type: array
-          minItems: 1
-          items: {type: string}
-        recommendations:
-          type: array
-          maxItems: 3
-          items: {$ref: '#/components/schemas/Recommendation'}
-        isDemoData: {type: boolean, enum: [true]}
-        disclaimer: {type: string}
-    GameConfig:
-      type: object
-      additionalProperties: true
-      required:
-        - serviceName
-        - version
-        - maxBudget
-        - grades
-        - rivers
-        - policies
-        - events
-        - badgeDefinitions
-        - resultStatuses
-        - priorities
-        - districts
-        - isDemoData
-      properties:
-        serviceName: {type: string, example: 강 새로이}
-        version: {type: string}
-        maxBudget: {type: integer, example: 100}
-        grades:
-          type: array
-          items: {$ref: '#/components/schemas/Grade'}
-        rivers: {type: array, items: {type: object, additionalProperties: true}}
-        policies: {type: array, items: {type: object, additionalProperties: true}}
-        events:
-          type: array
-          minItems: 1
-          items: {type: object, additionalProperties: true}
-        badgeDefinitions:
-          type: array
-          minItems: 6
-          maxItems: 6
-          items: {$ref: '#/components/schemas/Badge'}
-        resultStatuses:
-          type: array
-          minItems: 3
-          maxItems: 3
-          items:
-            type: object
-            additionalProperties: false
-            required: [id, title, message]
-            properties:
-              id:
-                type: string
-                enum: [TRY_AGAIN, MISSION_COMPLETE, PERFECT_CLEAR]
-              title: {type: string}
-              message: {type: string}
-        priorities: {type: array, items: {type: object, additionalProperties: true}}
-        districts: {type: array, items: {type: object, additionalProperties: true}}
-        isDemoData: {type: boolean, enum: [true]}
-    Statistics:
-      type: object
-      additionalProperties: true
-      required:
-        - totalParticipants
-        - missionSuccessRate
-        - perfectClearRate
-        - averageGradeImprovement
-        - riverParticipation
-        - policySelection
-        - eventStatistics
-        - commentKeywordAnalysis
-        - comments
-      properties:
-        totalParticipants: {type: integer, minimum: 0}
-        missionSuccessRate: {type: integer, minimum: 0, maximum: 100}
-        perfectClearRate: {type: integer, minimum: 0, maximum: 100}
-        averageGradeImprovement: {type: number}
-        riverParticipation: {type: array, items: {type: object, additionalProperties: true}}
-        policySelection: {type: array, items: {type: object, additionalProperties: true}}
-        eventStatistics: {$ref: '#/components/schemas/EventStatistics'}
-        commentKeywordAnalysis: {$ref: '#/components/schemas/CommentKeywordAnalysis'}
-        comments: {type: array, items: {type: object, additionalProperties: true}}
+        policyId: { $ref: "#/components/schemas/DirectPolicyId" }
+        policyName: { type: string }
+        cost: { type: integer, minimum: 0, maximum: 100 }
+        reason: { type: string }
+        expectedFinalBod: { type: number, minimum: 0.8 }
+        expectedFinalGrade: { $ref: "#/components/schemas/GradeSymbol" }
+        expectedFinalGradeLabel: { type: string }
+        expectedResultStatus: { $ref: "#/components/schemas/ResultStatus" }
+        expectedMissionSuccess: { type: boolean }
+        expectedPerfectClear: { type: boolean }
+        expectedRemainingBudget: { type: integer, minimum: 0, maximum: 100 }
     EventResult:
       type: object
       additionalProperties: false
@@ -514,23 +686,184 @@ components:
         - message
         - temporaryCharacterMood
       properties:
-        id: {type: string, enum: [DOWNSTREAM_ODOR_SURGE]}
-        name: {type: string}
-        triggerPolicyCount: {type: integer, enum: [2]}
-        status: {type: string, enum: [NOT_TRIGGERED, PENDING, RESOLVED]}
-        choice: {type: string, enum: [INVESTIGATE, WAIT], nullable: true}
-        cost: {type: integer, enum: [0, 5]}
-        scoreEffects:
-          type: object
-          additionalProperties: false
-          required: [ecology, citizen, monitoring]
-          properties:
-            ecology: {type: integer}
-            citizen: {type: integer}
-            monitoring: {type: integer}
-        sensorAssisted: {type: boolean}
-        message: {type: string, nullable: true}
-        temporaryCharacterMood: {type: string, enum: [WORRIED], nullable: true}
+        id: { type: string, enum: [DOWNSTREAM_ODOR_SURGE] }
+        name: { type: string }
+        triggerPolicyCount: { type: integer, enum: [2] }
+        status: { type: string, enum: [NOT_TRIGGERED, PENDING, RESOLVED] }
+        choice: { type: string, enum: [INVESTIGATE, WAIT], nullable: true }
+        cost: { type: integer, enum: [0, 5] }
+        scoreEffects: { $ref: "#/components/schemas/ScoreEffects" }
+        sensorAssisted: { type: boolean }
+        message: { type: string, nullable: true }
+        temporaryCharacterMood:
+          { type: string, enum: [WORRIED], nullable: true }
+    SimulationResult:
+      type: object
+      additionalProperties: false
+      required:
+        - river
+        - character
+        - initialBod
+        - finalBod
+        - bodReduction
+        - initialGrade
+        - finalGrade
+        - gradeImprovement
+        - resultStatus
+        - resultTitle
+        - resultMessage
+        - missionSuccess
+        - perfectClear
+        - remainingBodToMission
+        - selectedPolicies
+        - policyOrder
+        - budgetUsed
+        - remainingBudget
+        - scores
+        - event
+        - selectedPledgeAreas
+        - pledgeMatchRate
+        - badges
+        - strengths
+        - recommendations
+        - completion
+        - playerProfile
+        - isDemoData
+        - disclaimer
+      properties:
+        river: { $ref: "#/components/schemas/RiverIdentity" }
+        character: { type: string }
+        initialBod: { type: number, minimum: 0 }
+        finalBod: { type: number, minimum: 0.8 }
+        bodReduction: { type: number, minimum: 0 }
+        initialGrade: { $ref: "#/components/schemas/Grade" }
+        finalGrade: { $ref: "#/components/schemas/Grade" }
+        gradeImprovement: { type: integer, minimum: 0, maximum: 6 }
+        resultStatus: { $ref: "#/components/schemas/ResultStatus" }
+        resultTitle: { type: string }
+        resultMessage: { type: string }
+        missionSuccess: { type: boolean }
+        perfectClear: { type: boolean }
+        remainingBodToMission: { type: number, minimum: 0 }
+        selectedPolicies:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/Policy" }
+        policyOrder:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/PolicyId" }
+        budgetUsed: { type: integer, minimum: 0, maximum: 100 }
+        remainingBudget: { type: integer, minimum: 0, maximum: 100 }
+        scores: { $ref: "#/components/schemas/SimulationScores" }
+        event: { $ref: "#/components/schemas/EventResult" }
+        selectedPledgeAreas:
+          type: array
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/PledgeArea" }
+        pledgeMatchRate: { type: integer, minimum: 0, maximum: 100 }
+        badges:
+          type: array
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/Badge" }
+        strengths:
+          type: array
+          minItems: 1
+          items: { type: string }
+        recommendations:
+          type: array
+          maxItems: 3
+          items: { $ref: "#/components/schemas/Recommendation" }
+        completion: { $ref: "#/components/schemas/CompletionState" }
+        playerProfile: { $ref: "#/components/schemas/PlayerProfile" }
+        isDemoData: { type: boolean, enum: [true] }
+        disclaimer: { type: string }
+    SubmissionResponse:
+      type: object
+      additionalProperties: false
+      required: [id, createdAt, result]
+      properties:
+        id: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        result: { $ref: "#/components/schemas/SimulationResult" }
+    RateItem:
+      type: object
+      additionalProperties: false
+      required: [id, name, count, rate]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        count: { type: integer, minimum: 0 }
+        rate: { type: integer, minimum: 0, maximum: 100 }
+    PledgeAreaRateItem:
+      type: object
+      additionalProperties: false
+      required: [area, count, rate]
+      properties:
+        area: { $ref: "#/components/schemas/PledgeArea" }
+        count: { type: integer, minimum: 0 }
+        rate: { type: integer, minimum: 0, maximum: 100 }
+    GradeRateItem:
+      type: object
+      additionalProperties: false
+      required: [grade, count, rate]
+      properties:
+        grade: { $ref: "#/components/schemas/GradeSymbol" }
+        count: { type: integer, minimum: 0 }
+        rate: { type: integer, minimum: 0, maximum: 100 }
+    GradeDistribution:
+      type: object
+      additionalProperties: false
+      required: [initial, final]
+      properties:
+        initial:
+          type: array
+          minItems: 7
+          maxItems: 7
+          items: { $ref: "#/components/schemas/GradeRateItem" }
+        final:
+          type: array
+          minItems: 7
+          maxItems: 7
+          items: { $ref: "#/components/schemas/GradeRateItem" }
+    RiverStatistics:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - count
+        - rate
+        - missionSuccessRate
+        - perfectClearRate
+        - averageGradeImprovement
+        - gradeDistribution
+        - policySelection
+      properties:
+        id: { $ref: "#/components/schemas/RiverId" }
+        name: { type: string }
+        count: { type: integer, minimum: 0 }
+        rate: { type: integer, minimum: 0, maximum: 100 }
+        missionSuccessRate: { type: integer, minimum: 0, maximum: 100 }
+        perfectClearRate: { type: integer, minimum: 0, maximum: 100 }
+        averageGradeImprovement: { type: number, minimum: 0, maximum: 6 }
+        gradeDistribution: { $ref: "#/components/schemas/GradeDistribution" }
+        policySelection:
+          type: array
+          minItems: 7
+          maxItems: 7
+          items: { $ref: "#/components/schemas/RateItem" }
+    EventChoiceStatistics:
+      type: object
+      additionalProperties: false
+      required: [id, name, count, rate]
+      properties:
+        id: { $ref: "#/components/schemas/EventChoiceId" }
+        name: { type: string }
+        count: { type: integer, minimum: 0 }
+        rate: { type: integer, minimum: 0, maximum: 100 }
     EventStatistics:
       type: object
       additionalProperties: false
@@ -542,22 +875,22 @@ components:
         - choices
         - sensorAssistedInvestigations
       properties:
-        eventId: {type: string, enum: [DOWNSTREAM_ODOR_SURGE]}
-        eligibleParticipants: {type: integer, minimum: 0}
-        respondedParticipants: {type: integer, minimum: 0}
-        responseRate: {type: integer, minimum: 0, maximum: 100}
+        eventId: { type: string, enum: [DOWNSTREAM_ODOR_SURGE] }
+        eligibleParticipants: { type: integer, minimum: 0 }
+        respondedParticipants: { type: integer, minimum: 0 }
+        responseRate: { type: integer, minimum: 0, maximum: 100 }
         choices:
           type: array
           minItems: 2
           maxItems: 2
-          items: {type: object, additionalProperties: true}
+          items: { $ref: "#/components/schemas/EventChoiceStatistics" }
         sensorAssistedInvestigations:
           type: object
           additionalProperties: false
           required: [count, rate]
           properties:
-            count: {type: integer, minimum: 0}
-            rate: {type: integer, minimum: 0, maximum: 100}
+            count: { type: integer, minimum: 0 }
+            rate: { type: integer, minimum: 0, maximum: 100 }
     CommentKeywordCategory:
       type: object
       additionalProperties: false
@@ -566,72 +899,210 @@ components:
         id:
           type: string
           enum:
-            - ODOR
-            - POLLUTION_SOURCE
-            - DATA_DISCLOSURE
-            - ECOLOGY_RESTORATION
-            - WALKING_AMENITIES
-            - OTHER
-        name: {type: string}
-        count: {type: integer, minimum: 0}
-        rate: {type: integer, minimum: 0, maximum: 100}
+            [
+              ODOR,
+              POLLUTION_SOURCE,
+              DATA_DISCLOSURE,
+              ECOLOGY_RESTORATION,
+              WALKING_AMENITIES,
+              OTHER,
+            ]
+        name: { type: string }
+        count: { type: integer, minimum: 0 }
+        rate: { type: integer, minimum: 0, maximum: 100 }
     CommentKeywordAnalysis:
       type: object
       additionalProperties: false
       required:
-        - totalComments
-        - classificationMode
-        - dictionaryVersion
-        - categories
-        - topCategories
+        [
+          totalComments,
+          classificationMode,
+          dictionaryVersion,
+          categories,
+          topCategories,
+        ]
       properties:
-        totalComments: {type: integer, minimum: 0}
-        classificationMode: {type: string, enum: [SINGLE_PRIMARY]}
-        dictionaryVersion: {type: string}
+        totalComments: { type: integer, minimum: 0 }
+        classificationMode: { type: string, enum: [SINGLE_PRIMARY] }
+        dictionaryVersion: { type: string }
         categories:
           type: array
           minItems: 6
           maxItems: 6
-          items: {$ref: '#/components/schemas/CommentKeywordCategory'}
+          items: { $ref: "#/components/schemas/CommentKeywordCategory" }
         topCategories:
           type: array
           maxItems: 3
-          items: {$ref: '#/components/schemas/CommentKeywordCategory'}
+          items: { $ref: "#/components/schemas/CommentKeywordCategory" }
+    CandidateComment:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          riverId,
+          riverName,
+          district,
+          districtName,
+          topPriority,
+          topPriorityName,
+          comment,
+          createdAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        riverId: { $ref: "#/components/schemas/RiverId" }
+        riverName: { type: string }
+        district: { $ref: "#/components/schemas/DistrictId" }
+        districtName: { type: string }
+        topPriority: { $ref: "#/components/schemas/TopPriorityId" }
+        topPriorityName: { type: string }
+        comment: { type: string, maxLength: 200 }
+        createdAt: { type: string, format: date-time }
+    Statistics:
+      type: object
+      additionalProperties: false
+      required:
+        - totalParticipants
+        - todayParticipants
+        - missionSuccessRate
+        - perfectClearRate
+        - averageGradeImprovement
+        - gradeDistribution
+        - riverParticipation
+        - policySelection
+        - mostSelectedPolicy
+        - topPriorities
+        - pledgeAreaSelection
+        - eventStatistics
+        - commentKeywordAnalysis
+        - comments
+        - isDemoData
+        - disclaimer
+      properties:
+        totalParticipants: { type: integer, minimum: 0 }
+        todayParticipants: { type: integer, minimum: 0 }
+        missionSuccessRate: { type: integer, minimum: 0, maximum: 100 }
+        perfectClearRate: { type: integer, minimum: 0, maximum: 100 }
+        averageGradeImprovement: { type: number, minimum: 0, maximum: 6 }
+        gradeDistribution: { $ref: "#/components/schemas/GradeDistribution" }
+        riverParticipation:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: { $ref: "#/components/schemas/RiverStatistics" }
+        policySelection:
+          type: array
+          minItems: 7
+          maxItems: 7
+          items: { $ref: "#/components/schemas/RateItem" }
+        mostSelectedPolicy:
+          nullable: true
+          allOf:
+            - { $ref: "#/components/schemas/RateItem" }
+        topPriorities:
+          type: array
+          minItems: 6
+          maxItems: 6
+          items: { $ref: "#/components/schemas/RateItem" }
+        pledgeAreaSelection:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: { $ref: "#/components/schemas/PledgeAreaRateItem" }
+        eventStatistics: { $ref: "#/components/schemas/EventStatistics" }
+        commentKeywordAnalysis:
+          { $ref: "#/components/schemas/CommentKeywordAnalysis" }
+        comments:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/CandidateComment" }
+        isDemoData: { type: boolean, enum: [true] }
+        disclaimer: { type: string }
     CandidateFilters:
       type: object
       additionalProperties: false
       required: [riverId, district, from, to]
       properties:
-        riverId: {type: string, nullable: true}
-        district: {type: string, nullable: true}
-        from: {type: string, format: date, nullable: true}
-        to: {type: string, format: date, nullable: true}
-    CandidateComment:
+        riverId:
+          nullable: true
+          allOf:
+            - { $ref: "#/components/schemas/RiverId" }
+        district:
+          nullable: true
+          allOf:
+            - { $ref: "#/components/schemas/DistrictId" }
+        from: { type: string, format: date, nullable: true }
+        to: { type: string, format: date, nullable: true }
+    CandidatePeriod:
+      type: object
+      additionalProperties: false
+      required: [from, to]
+      properties:
+        from: { type: string, format: date-time, nullable: true }
+        to: { type: string, format: date-time, nullable: true }
+    CandidateReportSummary:
       type: object
       additionalProperties: false
       required:
-        - id
-        - riverId
-        - riverName
-        - district
-        - districtName
-        - topPriority
-        - topPriorityName
-        - comment
-        - createdAt
+        [
+          totalParticipants,
+          todayParticipants,
+          missionSuccessRate,
+          perfectClearRate,
+          averageGradeImprovement,
+          mostSelectedPolicy,
+        ]
       properties:
-        id: {type: string, format: uuid}
-        riverId: {type: string}
-        riverName: {type: string}
-        district: {type: string}
-        districtName: {type: string}
-        topPriority: {type: string}
-        topPriorityName: {type: string}
-        comment: {type: string, maxLength: 200}
-        createdAt: {type: string, format: date-time}
+        totalParticipants: { type: integer, minimum: 0 }
+        todayParticipants: { type: integer, minimum: 0 }
+        missionSuccessRate: { type: integer, minimum: 0, maximum: 100 }
+        perfectClearRate: { type: integer, minimum: 0, maximum: 100 }
+        averageGradeImprovement: { type: number, minimum: 0, maximum: 6 }
+        mostSelectedPolicy:
+          nullable: true
+          allOf:
+            - { $ref: "#/components/schemas/RateItem" }
+    PrioritiesByRiver:
+      type: object
+      additionalProperties: false
+      required: [riverId, riverName, totalParticipants, priorities]
+      properties:
+        riverId: { $ref: "#/components/schemas/RiverId" }
+        riverName: { type: string }
+        totalParticipants: { type: integer, minimum: 1 }
+        priorities:
+          type: array
+          minItems: 6
+          maxItems: 6
+          items: { $ref: "#/components/schemas/RateItem" }
+    PrioritiesByDistrict:
+      type: object
+      additionalProperties: false
+      required: [district, districtName, totalParticipants, priorities]
+      properties:
+        district: { $ref: "#/components/schemas/DistrictId" }
+        districtName: { type: string }
+        totalParticipants: { type: integer, minimum: 1 }
+        priorities:
+          type: array
+          minItems: 6
+          maxItems: 6
+          items: { $ref: "#/components/schemas/RateItem" }
+    CandidateMethodology:
+      type: object
+      additionalProperties: false
+      required:
+        [participation, rates, representativeness, commentKeywords, prediction]
+      properties:
+        participation: { type: string }
+        rates: { type: string }
+        representativeness: { type: string }
+        commentKeywords: { type: string }
+        prediction: { type: string }
     CandidateReport:
       type: object
-      additionalProperties: true
+      additionalProperties: false
       required:
         - title
         - period
@@ -649,29 +1120,58 @@ components:
         - methodology
         - isDemoData
       properties:
-        title: {type: string}
-        period:
-          type: object
-          required: [from, to]
-          properties:
-            from: {type: string, format: date-time, nullable: true}
-            to: {type: string, format: date-time, nullable: true}
-        filters: {$ref: '#/components/schemas/CandidateFilters'}
-        summary: {type: object, additionalProperties: true}
-        policySelection: {type: array, items: {type: object, additionalProperties: true}}
-        topPriorities: {type: array, items: {type: object, additionalProperties: true}}
-        pledgeAreaSelection: {type: array, items: {type: object, additionalProperties: true}}
-        eventStatistics: {$ref: '#/components/schemas/EventStatistics'}
-        commentKeywordAnalysis: {$ref: '#/components/schemas/CommentKeywordAnalysis'}
-        perRiver: {type: array, items: {type: object, additionalProperties: true}}
-        prioritiesByRiver: {type: array, items: {type: object, additionalProperties: true}}
-        prioritiesByDistrict: {type: array, items: {type: object, additionalProperties: true}}
+        title: { type: string }
+        period: { $ref: "#/components/schemas/CandidatePeriod" }
+        filters: { $ref: "#/components/schemas/CandidateFilters" }
+        summary: { $ref: "#/components/schemas/CandidateReportSummary" }
+        policySelection:
+          type: array
+          minItems: 7
+          maxItems: 7
+          items: { $ref: "#/components/schemas/RateItem" }
+        topPriorities:
+          type: array
+          minItems: 6
+          maxItems: 6
+          items: { $ref: "#/components/schemas/RateItem" }
+        pledgeAreaSelection:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: { $ref: "#/components/schemas/PledgeAreaRateItem" }
+        eventStatistics: { $ref: "#/components/schemas/EventStatistics" }
+        commentKeywordAnalysis:
+          { $ref: "#/components/schemas/CommentKeywordAnalysis" }
+        perRiver:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: { $ref: "#/components/schemas/RiverStatistics" }
+        prioritiesByRiver:
+          type: array
+          maxItems: 3
+          items: { $ref: "#/components/schemas/PrioritiesByRiver" }
+        prioritiesByDistrict:
+          type: array
+          maxItems: 6
+          items: { $ref: "#/components/schemas/PrioritiesByDistrict" }
         comments:
           type: array
           maxItems: 50
-          items: {$ref: '#/components/schemas/CandidateComment'}
-        methodology: {type: object, additionalProperties: true}
-        isDemoData: {type: boolean, enum: [true]}
+          items: { $ref: "#/components/schemas/CandidateComment" }
+        methodology: { $ref: "#/components/schemas/CandidateMethodology" }
+        isDemoData: { type: boolean, enum: [true] }
+    Pagination:
+      type: object
+      additionalProperties: false
+      required: [page, pageSize, totalItems, totalPages, hasNext, hasPrevious]
+      properties:
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        totalItems: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+        hasNext: { type: boolean }
+        hasPrevious: { type: boolean }
     CandidateCommentsPage:
       type: object
       additionalProperties: false
@@ -679,18 +1179,8 @@ components:
       properties:
         items:
           type: array
-          items: {$ref: '#/components/schemas/CandidateComment'}
-        pagination:
-          type: object
-          additionalProperties: false
-          required: [page, pageSize, totalItems, totalPages, hasNext, hasPrevious]
-          properties:
-            page: {type: integer, minimum: 1}
-            pageSize: {type: integer, minimum: 1, maximum: 100}
-            totalItems: {type: integer, minimum: 0}
-            totalPages: {type: integer, minimum: 0}
-            hasNext: {type: boolean}
-            hasPrevious: {type: boolean}
-        sort: {type: string, enum: [latest, oldest]}
-        filters: {$ref: '#/components/schemas/CandidateFilters'}
-        isDemoData: {type: boolean, enum: [true]}
+          items: { $ref: "#/components/schemas/CandidateComment" }
+        pagination: { $ref: "#/components/schemas/Pagination" }
+        sort: { type: string, enum: [latest, oldest] }
+        filters: { $ref: "#/components/schemas/CandidateFilters" }
+        isDemoData: { type: boolean, enum: [true] }

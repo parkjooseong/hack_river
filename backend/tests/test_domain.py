@@ -41,8 +41,8 @@ class SimulationTests(unittest.TestCase):
         result = simulate("oncheoncheon", ["sensor", "monitoring", "walking"])
         self.assertEqual(result["finalBod"], 3.0)
         self.assertFalse(result["missionSuccess"])
-        self.assertEqual(result["scores"]["monitoring"], 75)
-        self.assertEqual(result["scores"]["citizen"], 75)
+        self.assertEqual(result["scores"]["monitoring"], 76)
+        self.assertEqual(result["scores"]["citizen"], 82)
         self.assertIn("수질은 아직 개선되지 않았습니다", result["resultMessage"])
 
     def test_each_river_has_success_and_perfect_combinations(self) -> None:
@@ -87,19 +87,62 @@ class SimulationTests(unittest.TestCase):
 
         self.assertEqual(without_sensor["event"]["cost"], 5)
         self.assertEqual(without_sensor["budgetUsed"], 60)
-        self.assertEqual(without_sensor["scores"]["citizen"], 40)
-        self.assertEqual(without_sensor["scores"]["monitoring"], 40)
+        self.assertEqual(without_sensor["scores"]["citizen"], 46)
+        self.assertEqual(without_sensor["scores"]["monitoring"], 47)
         self.assertEqual(with_sensor["event"]["cost"], 0)
         self.assertTrue(with_sensor["event"]["sensorAssisted"])
-        self.assertEqual(with_sensor["scores"]["citizen"], 65)
-        self.assertEqual(with_sensor["scores"]["monitoring"], 75)
+        self.assertEqual(with_sensor["scores"]["citizen"], 71)
+        self.assertEqual(with_sensor["scores"]["monitoring"], 73)
 
     def test_wait_reduces_citizen_score_and_sets_temporary_mood(self) -> None:
         result = simulate("oncheoncheon", ["sensor", "walking"], "WAIT")
 
         self.assertEqual(result["event"]["cost"], 0)
-        self.assertEqual(result["scores"]["citizen"], 50)
+        self.assertEqual(result["scores"]["citizen"], 56)
         self.assertEqual(result["event"]["temporaryCharacterMood"], "WORRIED")
+
+    def test_completion_requires_water_goal_or_unaffordable_remaining_policies(self) -> None:
+        in_progress = simulate("dongcheon", ["sewer"])
+        water_goal = simulate(
+            "dongcheon", ["sewer", "treatment", "sourceBlock"], "WAIT"
+        )
+        budget_exhausted = simulate(
+            "dongcheon", ["sewer", "treatment", "ecology", "sensor"], "WAIT"
+        )
+
+        self.assertEqual(
+            in_progress["completion"],
+            {"canFinish": False, "reason": None, "budgetExhausted": False},
+        )
+        self.assertEqual(water_goal["completion"]["reason"], "WATER_GOAL")
+        self.assertTrue(water_goal["completion"]["canFinish"])
+        self.assertEqual(
+            budget_exhausted["completion"],
+            {
+                "canFinish": True,
+                "reason": "BUDGET_EXHAUSTED",
+                "budgetExhausted": True,
+            },
+        )
+
+    def test_player_profile_covers_each_policy_style(self) -> None:
+        cases = (
+            (["sewer"], None, "WATER_QUALITY"),
+            (["ecology"], None, "ECOLOGY"),
+            (["walking"], None, "CITIZEN"),
+            (["sensor"], None, "SMART_MANAGEMENT"),
+            (["ecology", "walking"], "WAIT", "BALANCED"),
+        )
+
+        for policy_ids, event_choice, expected in cases:
+            with self.subTest(profile=expected):
+                result = simulate("dongcheon", policy_ids, event_choice)
+                self.assertEqual(result["playerProfile"]["id"], expected)
+                self.assertTrue(result["playerProfile"]["name"])
+                self.assertEqual(
+                    set(result["playerProfile"]["scores"]),
+                    {"waterQuality", "ecology", "citizen", "monitoring"},
+                )
 
     def test_event_cost_is_included_in_budget_validation(self) -> None:
         policy_ids = ["sewer", "treatment", "sourceBlock", "monitoring", "walking"]
@@ -233,7 +276,7 @@ class SimulationTests(unittest.TestCase):
 
     def test_game_config_exposes_result_and_badge_definitions(self) -> None:
         config = game_config()
-        self.assertEqual(config["version"], "2026-08-demo-v4")
+        self.assertEqual(config["version"], "2026-08-demo-v5")
         self.assertEqual(len(config["badgeDefinitions"]), 6)
         self.assertEqual(
             {item["id"] for item in config["resultStatuses"]},

@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from river_api.application import Application
+from river_api.candidate_auth import CandidateAuthorizationError
 from river_api.domain import simulate
 from river_api.repository import RepositoryUnavailableError, SQLiteResponseRepository
 from river_api.service import RiverService
@@ -20,7 +21,7 @@ class ApiTests(unittest.TestCase):
         )
         repository.initialize()
         self.repository = repository
-        self.application = Application(RiverService(repository))
+        self.application = Application(RiverService(repository), lambda _token: None)
 
     def tearDown(self) -> None:
         self.temp_directory.cleanup()
@@ -166,6 +167,31 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response["service"], "gang-saeroi-api")
         self.assertEqual(response["name"], "강 새로이")
 
+    def test_candidate_endpoints_require_and_forward_access_token(self) -> None:
+        received_tokens: list[str | None] = []
+
+        def authorize(token: str | None) -> None:
+            received_tokens.append(token)
+            if token != "candidate-token":
+                raise CandidateAuthorizationError(
+                    401,
+                    "CANDIDATE_AUTH_REQUIRED",
+                    "후보자 로그인이 필요합니다.",
+                )
+
+        application = Application(self.application.service, authorize)
+        rejected_status, rejected = application.dispatch(
+            "GET", "/api/candidate/report"
+        )
+        accepted_status, _ = application.dispatch(
+            "GET", "/api/candidate/report", access_token="candidate-token"
+        )
+
+        self.assertEqual(rejected_status, 401)
+        self.assertEqual(rejected["error"]["code"], "CANDIDATE_AUTH_REQUIRED")
+        self.assertEqual(accepted_status, 200)
+        self.assertEqual(received_tokens, [None, "candidate-token"])
+
     def test_result_guidance_is_available_from_calculation_and_submission(self) -> None:
         calculation_status, calculation = self.application.dispatch(
             "POST",
@@ -279,6 +305,7 @@ class ApiTests(unittest.TestCase):
             self.submission(
                 riverId="dongcheon",
                 policyIds=["sewer", "treatment", "sourceBlock", "ecology"],
+                eventChoice="WAIT",
                 district="busanjin",
                 topPriority="ecology",
             ),
@@ -297,7 +324,8 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(stats["eventStatistics"]["eligibleParticipants"], 2)
         self.assertEqual(stats["eventStatistics"]["responseRate"], 100)
         self.assertEqual(
-            stats["eventStatistics"]["choices"][0]["count"], 2
+            {item["id"]: item["count"] for item in stats["eventStatistics"]["choices"]},
+            {"INVESTIGATE": 1, "WAIT": 1},
         )
         self.assertEqual(stats["commentKeywordAnalysis"]["totalComments"], 2)
         self.assertEqual(
@@ -501,7 +529,7 @@ class ApiTests(unittest.TestCase):
             def list_all(self):
                 raise RepositoryUnavailableError("secret database details")
 
-        application = Application(RiverService(UnavailableRepository()))
+        application = Application(RiverService(UnavailableRepository()), lambda _token: None)
         status, response = application.dispatch(
             "GET", "/api/stats", request_id="database-request-id"
         )
@@ -549,7 +577,7 @@ class ApiTests(unittest.TestCase):
             def list_all(self):
                 raise RuntimeError("SUPABASE_SECRET_KEY=must-not-leak")
 
-        application = Application(RiverService(ExplodingRepository()))
+        application = Application(RiverService(ExplodingRepository()), lambda _token: None)
         with self.assertLogs("river_api", level="ERROR") as logs:
             status, response = application.dispatch(
                 "GET", "/api/stats", request_id="internal-request-id"

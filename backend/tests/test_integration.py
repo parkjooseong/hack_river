@@ -34,7 +34,7 @@ class HttpIntegrationTests(unittest.TestCase):
     def _start_server(self) -> None:
         repository = SQLiteResponseRepository(self.database_path)
         repository.initialize()
-        application = Application(RiverService(repository))
+        application = Application(RiverService(repository), lambda _token: None)
         handler = create_handler(application, {self.ALLOWED_ORIGIN})
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)

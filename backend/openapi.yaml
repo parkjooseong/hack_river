@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: 강 새로이 API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     부산 하천 정책 체험용 API입니다. BOD 변화량은 게임용 데모 값이며
     실제 수질 개선을 예측하거나 보장하지 않습니다. 모든 HTTP 응답은
@@ -97,6 +97,8 @@ paths:
     get:
       summary: 후보자용 정책 리포트 데이터 조회
       description: 날짜 필터는 저장된 UTC 날짜를 기준으로 시작일과 종료일을 모두 포함합니다.
+      security:
+        - candidateBearerAuth: []
       parameters:
         - { $ref: "#/components/parameters/CandidateRiverId" }
         - { $ref: "#/components/parameters/CandidateDistrict" }
@@ -111,13 +113,17 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/CandidateReport" }
         "400": { $ref: "#/components/responses/ValidationError" }
-        "503": { $ref: "#/components/responses/DatabaseUnavailable" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AccessDenied" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
         "405": { $ref: "#/components/responses/MethodNotAllowed" }
         "500": { $ref: "#/components/responses/InternalServerError" }
   /api/candidate/comments:
     get:
       summary: 후보자용 시민 의견 목록 조회
       description: 내용이 있는 익명 의견만 필터링해 페이지 단위로 제공합니다.
+      security:
+        - candidateBearerAuth: []
       parameters:
         - { $ref: "#/components/parameters/CandidateRiverId" }
         - { $ref: "#/components/parameters/CandidateDistrict" }
@@ -141,10 +147,17 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/CandidateCommentsPage" }
         "400": { $ref: "#/components/responses/ValidationError" }
-        "503": { $ref: "#/components/responses/DatabaseUnavailable" }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "403": { $ref: "#/components/responses/AccessDenied" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
         "405": { $ref: "#/components/responses/MethodNotAllowed" }
         "500": { $ref: "#/components/responses/InternalServerError" }
 components:
+  securitySchemes:
+    candidateBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Supabase JWT
   headers:
     RequestId:
       description: 서버 로그와 응답을 연결하는 요청 ID
@@ -178,6 +191,27 @@ components:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
     DatabaseUnavailable:
       description: 공유 데이터베이스 일시 장애
+      headers:
+        X-Request-ID: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    AuthenticationRequired:
+      description: 후보자 로그인이 필요하거나 세션이 만료됨
+      headers:
+        X-Request-ID: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    AccessDenied:
+      description: 로그인한 계정에 후보자 대시보드 권한이 없음
+      headers:
+        X-Request-ID: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    ServiceUnavailable:
+      description: 공유 데이터베이스 또는 인증 서비스의 일시 장애
       headers:
         X-Request-ID: { $ref: "#/components/headers/RequestId" }
       content:
@@ -248,6 +282,16 @@ components:
     ResultStatus:
       type: string
       enum: [TRY_AGAIN, MISSION_COMPLETE, PERFECT_CLEAR]
+    CompletionReason:
+      type: string
+      enum: [WATER_GOAL, BUDGET_EXHAUSTED]
+      nullable: true
+    PlayerProfileId:
+      type: string
+      enum: [WATER_QUALITY, ECOLOGY, CITIZEN, SMART_MANAGEMENT, BALANCED]
+    PlayerProfileMetric:
+      type: string
+      enum: [waterQuality, ecology, citizen, monitoring, balanced]
     ErrorDetail:
       type: object
       additionalProperties: false
@@ -276,6 +320,9 @@ components:
                 - VALIDATION_ERROR
                 - PERSONAL_INFORMATION_NOT_ALLOWED
                 - DATABASE_UNAVAILABLE
+                - CANDIDATE_AUTH_REQUIRED
+                - CANDIDATE_ACCESS_DENIED
+                - CANDIDATE_AUTH_UNAVAILABLE
                 - INTERNAL_SERVER_ERROR
                 - UNSUPPORTED_MEDIA_TYPE
                 - INVALID_LENGTH
@@ -570,6 +617,33 @@ components:
         ecology: { type: integer, minimum: 0, maximum: 100 }
         citizen: { type: integer, minimum: 0, maximum: 100 }
         monitoring: { type: integer, minimum: 0, maximum: 100 }
+    CompletionState:
+      type: object
+      additionalProperties: false
+      required: [canFinish, reason, budgetExhausted]
+      properties:
+        canFinish: { type: boolean }
+        reason: { $ref: "#/components/schemas/CompletionReason" }
+        budgetExhausted: { type: boolean }
+    PlayerProfileScores:
+      type: object
+      additionalProperties: false
+      required: [waterQuality, ecology, citizen, monitoring]
+      properties:
+        waterQuality: { type: integer, minimum: 0, maximum: 100 }
+        ecology: { type: integer, minimum: 0, maximum: 100 }
+        citizen: { type: integer, minimum: 0, maximum: 100 }
+        monitoring: { type: integer, minimum: 0, maximum: 100 }
+    PlayerProfile:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, primaryMetric, scores]
+      properties:
+        id: { $ref: "#/components/schemas/PlayerProfileId" }
+        name: { type: string }
+        description: { type: string }
+        primaryMetric: { $ref: "#/components/schemas/PlayerProfileMetric" }
+        scores: { $ref: "#/components/schemas/PlayerProfileScores" }
     Recommendation:
       type: object
       additionalProperties: false
@@ -652,6 +726,8 @@ components:
         - badges
         - strengths
         - recommendations
+        - completion
+        - playerProfile
         - isDemoData
         - disclaimer
       properties:
@@ -700,6 +776,8 @@ components:
           type: array
           maxItems: 3
           items: { $ref: "#/components/schemas/Recommendation" }
+        completion: { $ref: "#/components/schemas/CompletionState" }
+        playerProfile: { $ref: "#/components/schemas/PlayerProfile" }
         isDemoData: { type: boolean, enum: [true] }
         disclaimer: { type: string }
     SubmissionResponse:

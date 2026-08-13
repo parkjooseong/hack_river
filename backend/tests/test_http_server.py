@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from river_api.application import error_payload
-from river_api.http_server import _is_json_content_type, _query_parameters
+from river_api.http_server import _bearer_token, _is_json_content_type, _query_parameters
 
 
 class HttpBoundaryTests(unittest.TestCase):
@@ -27,6 +27,13 @@ class HttpBoundaryTests(unittest.TestCase):
         )
         self.assertEqual(query["riverId"], ["dongcheon", "oncheoncheon"])
         self.assertEqual(query["sort"], [""])
+
+    def test_bearer_token_accepts_only_one_well_formed_token(self) -> None:
+        self.assertEqual(_bearer_token("Bearer token-value"), "token-value")
+        self.assertEqual(_bearer_token("bearer token-value"), "token-value")
+        for value in (None, "", "Basic token", "Bearer", "Bearer two tokens"):
+            with self.subTest(value=value):
+                self.assertIsNone(_bearer_token(value))
 
 
 if __name__ == "__main__":

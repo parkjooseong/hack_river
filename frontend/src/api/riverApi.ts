@@ -59,17 +59,19 @@ export class RiverApi {
     return this.client.requestLatest<Statistics>('statistics', '/api/stats')
   }
 
-  getCandidateReport(query: CandidateReportQuery = {}) {
+  getCandidateReport(accessToken: string, query: CandidateReportQuery = {}) {
     return this.client.requestLatest<CandidateReport>(
       'candidate-report',
       withQuery('/api/candidate/report', query),
+      { accessToken },
     )
   }
 
-  getCandidateComments(query: CandidateCommentsQuery = {}) {
+  getCandidateComments(accessToken: string, query: CandidateCommentsQuery = {}) {
     return this.client.requestLatest<CandidateCommentsPage>(
       'candidate-comments',
       withQuery('/api/candidate/comments', query),
+      { accessToken },
     )
   }
 

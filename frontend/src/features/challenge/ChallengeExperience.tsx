@@ -27,6 +27,8 @@ import { RiverCharacter } from '../character/RiverCharacter'
 import { createRiverCharacterState } from '../character/model'
 import type { AppGameConfig, PolicyOption, RiverOption } from '../game/model'
 import { eventChoiceForSimulation, togglePolicy } from '../game/model'
+import { createPolicyOffers, hasDesignedPolicySelection } from './policySelectionModel'
+import { PolicySelectionScreen } from './PolicySelectionScreen'
 import { clearChallengeSession, readChallengeSession, writeChallengeSession } from './session'
 
 type ChallengeExperienceProps = {
@@ -108,6 +110,9 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
   const [selectedPolicyIds, setSelectedPolicyIds] = useState<readonly PolicyId[]>(
     restoredSession?.selectedPolicyIds ?? [],
   )
+  const [offeredPolicyIds, setOfferedPolicyIds] = useState<readonly PolicyId[]>(() =>
+    createPolicyOffers(config.policies, restoredSession?.selectedPolicyIds ?? [], config.maxBudget),
+  )
   const [eventChoice, setEventChoice] = useState<EventChoice | undefined>(
     restoredSession?.eventChoice,
   )
@@ -167,9 +172,14 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
         setSimulation(result)
         setSimulationError(null)
         setEventOpen(result.event.status === 'PENDING')
+        setOfferedPolicyIds(
+          createPolicyOffers(config.policies, restored.selectedPolicyIds, result.remainingBudget),
+        )
         if (result.event.status === 'PENDING') {
           setShowResult(false)
           setShowSubmissionForm(false)
+        } else if (result.completion.canFinish) {
+          setShowResult(true)
         }
       })
       .catch((error: unknown) => {
@@ -191,7 +201,7 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
     return () => {
       active = false
     }
-  }, [config.event.triggerPolicyCount, restoredSession, river.id])
+  }, [config.event.triggerPolicyCount, config.policies, restoredSession, river.id])
 
   useEffect(() => {
     if (submission.status === 'success') {
@@ -242,7 +252,7 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
       setSimulation(null)
       setIsSimulating(false)
       setEventOpen(false)
-      return
+      return null
     }
 
     setIsSimulating(true)
@@ -265,6 +275,11 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
 
       setSimulation(result)
       setEventOpen(result.event.status === 'PENDING')
+      if (result.event.status !== 'PENDING' && result.completion.canFinish) {
+        setShowResult(true)
+        globalThis.scrollTo?.({ top: 0, behavior: 'smooth' })
+      }
+      return result
     } catch (error) {
       if (requestVersion.current !== version) {
         return
@@ -278,6 +293,7 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
       setSelectedPolicyIds(previousPolicyIds)
       setEventChoice(previousEventChoice)
       setSimulationError(normalizedError)
+      return null
     } finally {
       if (requestVersion.current === version) {
         setIsSimulating(false)
@@ -289,6 +305,25 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
     const nextPolicyIds = togglePolicy(selectedPolicyIds, policyId)
 
     void runSimulation(nextPolicyIds, eventChoice, selectedPolicyIds, eventChoice)
+  }
+
+  const handlePolicySelect = async (policyId: PolicyId) => {
+    if (
+      isSimulating ||
+      simulation?.event.status === 'PENDING' ||
+      selectedPolicyIds.includes(policyId)
+    ) {
+      return
+    }
+
+    const nextPolicyIds = [...selectedPolicyIds, policyId]
+    const result = await runSimulation(nextPolicyIds, eventChoice, selectedPolicyIds, eventChoice)
+
+    if (result && !result.completion.canFinish) {
+      setOfferedPolicyIds(
+        createPolicyOffers(config.policies, nextPolicyIds, result.remainingBudget),
+      )
+    }
   }
 
   const handleEventChoice = (choice: EventChoice) => {
@@ -321,6 +356,18 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
       return
     }
 
+    if (!simulation.completion.canFinish) {
+      setSimulationError(
+        new ApiError({
+          kind: 'http',
+          code: 'GAME_NOT_COMPLETE',
+          userMessage:
+            'BOD 2.0mg/L 이하를 달성하거나 남은 예산으로 살 수 있는 정책이 없을 때 결과를 확인할 수 있습니다.',
+        }),
+      )
+      return
+    }
+
     setShowResult(true)
     globalThis.scrollTo?.({ top: 0, behavior: 'smooth' })
   }
@@ -330,6 +377,7 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
     riverApi.cancelSimulation()
     clearChallengeSession(river.id)
     setSelectedPolicyIds([])
+    setOfferedPolicyIds(createPolicyOffers(config.policies, [], config.maxBudget))
     setEventChoice(undefined)
     setSimulation(null)
     setSimulationError(null)
@@ -410,6 +458,36 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
     grade: currentGrade.symbol,
     simulation,
   })
+  const eventModal = (
+    <Modal
+      open={eventOpen}
+      title={config.event.name}
+      onClose={() => setEventOpen(false)}
+      footer={
+        <div className="button-stack">
+          {config.event.choices.map((choice) => (
+            <Button
+              key={choice.id}
+              variant={choice.id === 'INVESTIGATE' ? 'primary' : 'secondary'}
+              fullWidth
+              onClick={() => handleEventChoice(choice.id)}
+            >
+              {choice.name} ·{' '}
+              {choice.id === 'INVESTIGATE' && selectedPolicyIds.includes('sensor')
+                ? 0
+                : choice.cost}
+              억원
+            </Button>
+          ))}
+        </div>
+      }
+    >
+      <p>{config.event.description}</p>
+      <p className="muted-copy">
+        스마트 수질센서를 적용했다면 추가 조사를 더 빠르고 비용 없이 진행할 수 있습니다.
+      </p>
+    </Modal>
+  )
 
   if (showResult && simulation) {
     return (
@@ -467,6 +545,41 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
               valueText={`${simulation.scores.monitoring ?? 0}점`}
             />
           </div>
+        </PageSection>
+
+        <PageSection title="나의 정책 유형">
+          <Card
+            className={`player-profile player-profile--${simulation.playerProfile.id.toLowerCase()}`}
+            tone="outlined"
+            title={simulation.playerProfile.name}
+          >
+            <p>{simulation.playerProfile.description}</p>
+            <div className="progress-list">
+              <ProgressBar
+                label="수질 개선"
+                value={simulation.playerProfile.scores.waterQuality}
+                valueText={`${simulation.playerProfile.scores.waterQuality}점`}
+              />
+              <ProgressBar
+                label="생태 회복"
+                value={simulation.playerProfile.scores.ecology}
+                valueText={`${simulation.playerProfile.scores.ecology}점`}
+              />
+              <ProgressBar
+                label="시민 만족"
+                value={simulation.playerProfile.scores.citizen}
+                valueText={`${simulation.playerProfile.scores.citizen}점`}
+              />
+              <ProgressBar
+                label="스마트 관리"
+                value={simulation.playerProfile.scores.monitoring}
+                valueText={`${simulation.playerProfile.scores.monitoring}점`}
+              />
+            </div>
+            <small className="muted-copy">
+              이번 게임의 정책 선택만 설명하는 결과이며 정치 성향을 판단하지 않습니다.
+            </small>
+          </Card>
         </PageSection>
 
         <PageSection title="획득 배지">
@@ -633,14 +746,79 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
 
         {submission.status !== 'success' ? (
           <div className="button-stack">
-            <Button variant="secondary" fullWidth onClick={() => setShowResult(false)}>
-              정책 조합 수정하기
-            </Button>
+            {!hasDesignedPolicySelection(river.id) ? (
+              <Button variant="secondary" fullWidth onClick={() => setShowResult(false)}>
+                정책 조합 수정하기
+              </Button>
+            ) : null}
             <Button variant="ghost" fullWidth onClick={resetChallenge}>
               처음부터 다시 도전하기
             </Button>
           </div>
         ) : null}
+      </div>
+    )
+  }
+
+  if (hasDesignedPolicySelection(river.id)) {
+    return (
+      <div className="figma-challenge-play">
+        <PolicySelectionScreen
+          river={river}
+          policies={config.policies}
+          offeredPolicyIds={offeredPolicyIds}
+          selectedPolicyIds={selectedPolicyIds}
+          currentBod={currentBod}
+          currentGrade={currentGrade}
+          successThresholdBod={config.successThresholdBod}
+          scores={currentScores}
+          remainingBudget={remainingBudget}
+          isSimulating={isSimulating}
+          isSelectionLocked={isSimulating || eventPending}
+          onPolicySelect={handlePolicySelect}
+        />
+
+        <div className="figma-challenge-controls">
+          {isSimulating ? (
+            <div className="inline-loading" role="status">
+              선택 결과를 계산하는 중입니다.
+            </div>
+          ) : null}
+
+          {simulationError ? (
+            <Notice tone="danger" title="정책 조합을 적용하지 못했습니다.">
+              {simulationErrorMessage(simulationError)}
+              {simulationError.requestId ? ` 문의 코드: ${simulationError.requestId}` : ''}
+              <button type="button" className="text-button" onClick={retryCurrentSimulation}>
+                다시 계산하기
+              </button>
+            </Notice>
+          ) : null}
+
+          {eventPending ? (
+            <Notice tone="warning" title="돌발상황 대응이 필요합니다.">
+              결과를 확인하기 전에 대응 방법을 선택해 주세요.{' '}
+              <button type="button" className="text-button" onClick={() => setEventOpen(true)}>
+                대응 선택하기
+              </button>
+            </Notice>
+          ) : null}
+
+          <Button
+            fullWidth
+            size="large"
+            onClick={handleShowResult}
+            disabled={
+              !simulation || isSimulating || eventPending || !simulation.completion.canFinish
+            }
+          >
+            {simulation?.completion.canFinish
+              ? '최종 결과 확인하기'
+              : '정책을 하나 더 선택해 주세요'}
+          </Button>
+        </div>
+
+        {eventModal}
       </div>
     )
   }
@@ -779,39 +957,12 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
         fullWidth
         size="large"
         onClick={handleShowResult}
-        disabled={!simulation || isSimulating || eventPending}
+        disabled={!simulation || isSimulating || eventPending || !simulation.completion.canFinish}
       >
         최종 결과 확인하기
       </Button>
 
-      <Modal
-        open={eventOpen}
-        title={config.event.name}
-        onClose={() => setEventOpen(false)}
-        footer={
-          <div className="button-stack">
-            {config.event.choices.map((choice) => (
-              <Button
-                key={choice.id}
-                variant={choice.id === 'INVESTIGATE' ? 'primary' : 'secondary'}
-                fullWidth
-                onClick={() => handleEventChoice(choice.id)}
-              >
-                {choice.name} ·{' '}
-                {choice.id === 'INVESTIGATE' && selectedPolicyIds.includes('sensor')
-                  ? 0
-                  : choice.cost}
-                억원
-              </Button>
-            ))}
-          </div>
-        }
-      >
-        <p>{config.event.description}</p>
-        <p className="muted-copy">
-          스마트 수질센서를 적용했다면 추가 조사를 더 빠르고 비용 없이 진행할 수 있습니다.
-        </p>
-      </Modal>
+      {eventModal}
     </div>
   )
 }

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Callable
 from uuid import uuid4
 
 from .branding import SERVICE_ID, SERVICE_NAME
+from .candidate_auth import CandidateAuthorizationError, UnavailableCandidateAuthorizer
 from .domain import DomainValidationError
 from .repository import RepositoryUnavailableError
 from .service import RiverService
@@ -44,8 +45,17 @@ def error_payload(
 
 
 class Application:
-    def __init__(self, service: RiverService):
+    def __init__(
+        self,
+        service: RiverService,
+        candidate_authorize: Callable[[str | None], None] | None = None,
+    ):
         self.service = service
+        self.candidate_authorize = (
+            candidate_authorize
+            if candidate_authorize is not None
+            else UnavailableCandidateAuthorizer().require_authorized
+        )
 
     @staticmethod
     def allowed_methods(path: str) -> frozenset[str]:
@@ -58,6 +68,7 @@ class Application:
         payload: Any | None = None,
         request_id: str | None = None,
         query: dict[str, Any] | None = None,
+        access_token: str | None = None,
     ) -> tuple[int, dict[str, Any]]:
         request_id = request_id or new_request_id()
         method = method.upper()
@@ -91,10 +102,14 @@ class Application:
             if method == "GET" and path == "/api/stats":
                 return 200, self.service.statistics()
             if method == "GET" and path == "/api/candidate/report":
+                self.candidate_authorize(access_token)
                 return 200, self.service.candidate_report(query)
             if method == "GET" and path == "/api/candidate/comments":
+                self.candidate_authorize(access_token)
                 return 200, self.service.candidate_comments(query)
             raise AssertionError("Registered route has no handler")
+        except CandidateAuthorizationError as error:
+            return error.status, error_payload(error.code, str(error), request_id)
         except DomainValidationError as error:
             return 400, error_payload(
                 error.code, str(error), request_id, error.details

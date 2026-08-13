@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
-from scripts.predeploy_check import _production_origins, _repository_checks
+from scripts.predeploy_check import _environment_checks, _production_origins, _repository_checks
 
 
 class DeploymentCheckTests(unittest.TestCase):
@@ -29,6 +30,22 @@ class DeploymentCheckTests(unittest.TestCase):
         self.assertTrue(checks["migrations"])
         self.assertTrue(checks["required_notices"])
         self.assertTrue(checks["openapi"])
+
+    def test_candidate_auth_environment_is_required_for_deployment(self) -> None:
+        environment = {
+            "STORAGE_BACKEND": "supabase",
+            "SUPABASE_URL": "https://project.supabase.co",
+            "SUPABASE_SECRET_KEY": "sb_secret_test",
+            "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_test",
+            "CANDIDATE_AUTH_EMAIL": "candidate@gang-saeroi.test",
+            "ALLOWED_ORIGINS": "https://gang-saeroi.example",
+            "BACKUP_POLICY_CONFIRMED": "true",
+        }
+        with patch.dict("os.environ", environment, clear=True):
+            checks = {name: passed for name, passed, _ in _environment_checks()}
+
+        self.assertTrue(checks["supabase_publishable"])
+        self.assertTrue(checks["candidate_auth_email"])
 
 
 if __name__ == "__main__":

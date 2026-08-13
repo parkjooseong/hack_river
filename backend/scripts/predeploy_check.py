@@ -42,9 +42,13 @@ def _production_origins(raw_value: str) -> tuple[bool, str]:
 def _environment_checks() -> list[tuple[str, bool, str]]:
     project_url = os.getenv("SUPABASE_URL", "").strip()
     secret_key = os.getenv("SUPABASE_SECRET_KEY", "").strip()
+    publishable_key = os.getenv("SUPABASE_PUBLISHABLE_KEY", "").strip()
+    candidate_email = os.getenv("CANDIDATE_AUTH_EMAIL", "").strip()
     storage_ok = os.getenv("STORAGE_BACKEND", "").strip().lower() == "supabase"
     url_ok = project_url.startswith("https://") and "YOUR_PROJECT_REF" not in project_url
     secret_ok = bool(secret_key) and "REPLACE_ME" not in secret_key
+    publishable_ok = bool(publishable_key) and "REPLACE_ME" not in publishable_key
+    candidate_email_ok = "@" in candidate_email and "example.com" not in candidate_email
     backup_ok = os.getenv("BACKUP_POLICY_CONFIRMED", "").strip().lower() == "true"
     origins_ok, origins_message = _production_origins(
         os.getenv("ALLOWED_ORIGINS", "")
@@ -70,6 +74,20 @@ def _environment_checks() -> list[tuple[str, bool, str]]:
             "서버 전용 Supabase Secret key가 설정되어 있습니다."
             if secret_ok
             else "실제 서버 전용 SUPABASE_SECRET_KEY가 필요합니다.",
+        ),
+        (
+            "supabase_publishable",
+            publishable_ok,
+            "Supabase Publishable key가 설정되어 있습니다."
+            if publishable_ok
+            else "실제 SUPABASE_PUBLISHABLE_KEY가 필요합니다.",
+        ),
+        (
+            "candidate_auth_email",
+            candidate_email_ok,
+            "후보자 전용 Supabase Auth 계정 이메일이 설정되어 있습니다."
+            if candidate_email_ok
+            else "실제 CANDIDATE_AUTH_EMAIL이 필요합니다.",
         ),
         ("allowed_origins", origins_ok, origins_message),
         (

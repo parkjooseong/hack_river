@@ -16,6 +16,7 @@ import {
   TextInput,
 } from '../components'
 import { CandidateDashboard } from '../features/candidate/CandidateDashboard'
+import { useCandidateAuth } from '../features/candidate/useCandidateAuth'
 import {
   parseCandidateSearchParams,
   toCandidateSearchParams,
@@ -27,6 +28,8 @@ import { useGameConfig } from '../features/game/useGameConfig'
 export default function CandidatePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [filterError, setFilterError] = useState<string | null>(null)
+  const [password, setPassword] = useState('')
+  const candidateAuth = useCandidateAuth()
   const filters = useMemo(() => parseCandidateSearchParams(searchParams), [searchParams])
   const filterKey = [filters.riverId, filters.district, filters.from, filters.to].join('|')
   const { state: configState, reload: reloadConfig } = useGameConfig()
@@ -73,6 +76,17 @@ export default function CandidatePage() {
     updateFilters({ ...filters, page: Math.max(1, page) })
   }
 
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const authenticated = await candidateAuth.login(password)
+    if (authenticated) {
+      setPassword('')
+    }
+  }
+
+  const authenticatedSession =
+    candidateAuth.state.status === 'authenticated' ? candidateAuth.state.session : null
+
   return (
     <PageLayout
       eyebrow="후보자 대시보드"
@@ -80,16 +94,59 @@ export default function CandidatePage() {
       description="서비스 참여자의 익명 선택을 정책 우선순위와 의견으로 확인합니다."
       header={<AppHeader title="후보자 대시보드" backTo="/" />}
     >
-      <Notice tone="warning" title="외부 공개 전 접근 정책 확인 필요">
-        현재 MVP는 로그인 없이 열립니다. 실제 공개 전 후보자용 리포트의 인증·공유 범위를 다시
-        결정해야 합니다.
-      </Notice>
+      {candidateAuth.state.status === 'not-configured' ? (
+        <Notice tone="danger" title="후보자 인증 설정이 필요합니다.">
+          Supabase Auth 계정과 프론트엔드 환경변수를 설정한 뒤 다시 접속해 주세요.
+        </Notice>
+      ) : null}
 
-      {configState.status === 'loading' && !config ? (
+      {candidateAuth.state.status === 'loading' ? (
+        <LoadingState label="후보자 로그인 상태를 확인하는 중입니다." />
+      ) : null}
+
+      {candidateAuth.state.status === 'unauthenticated' ||
+      candidateAuth.state.status === 'error' ? (
+        <Card className="candidate-auth-card" title="후보자 전용 로그인">
+          <form className="submission-form" onSubmit={handleLogin} noValidate>
+            <TextInput
+              type="password"
+              label="비밀번호"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+              required
+              error={
+                candidateAuth.state.status === 'error' ? candidateAuth.state.message : undefined
+              }
+              hint="Supabase Auth에 등록한 후보자 전용 계정의 비밀번호를 입력해 주세요."
+            />
+            <Button
+              type="submit"
+              fullWidth
+              size="large"
+              isLoading={candidateAuth.isSubmitting}
+              loadingLabel="확인 중"
+            >
+              대시보드 열기
+            </Button>
+          </form>
+        </Card>
+      ) : null}
+
+      {authenticatedSession ? (
+        <Notice tone="info" title="후보자 전용 화면입니다.">
+          로그인된 사용자만 리포트와 시민 의견을 조회할 수 있습니다.{' '}
+          <button type="button" className="text-button" onClick={() => void candidateAuth.logout()}>
+            로그아웃
+          </button>
+        </Notice>
+      ) : null}
+
+      {authenticatedSession && configState.status === 'loading' && !config ? (
         <LoadingState label="리포트 필터 설정을 불러오는 중입니다." />
       ) : null}
 
-      {configState.status === 'error' && !config ? (
+      {authenticatedSession && configState.status === 'error' && !config ? (
         <ErrorState
           description={configState.error.userMessage}
           requestId={configState.error.requestId}
@@ -97,7 +154,7 @@ export default function CandidatePage() {
         />
       ) : null}
 
-      {config ? (
+      {authenticatedSession && config ? (
         <>
           <Card className="candidate-filter-card no-print" title="리포트 필터">
             <form key={filterKey} className="candidate-filter-form" onSubmit={handleFilterSubmit}>
@@ -152,9 +209,11 @@ export default function CandidatePage() {
 
           <CandidateDashboard
             key={toCandidateSearchParams(filters).toString()}
+            accessToken={authenticatedSession.accessToken}
             filters={filters}
             onSortChange={handleSortChange}
             onPageChange={handlePageChange}
+            onAuthenticationRequired={() => void candidateAuth.logout()}
           />
         </>
       ) : null}

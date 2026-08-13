@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom'
 
 import { AppHeader, Button, ErrorState, LinkButton, LoadingState, PageLayout } from '../components'
 import { ChallengeExperience } from '../features/challenge/ChallengeExperience'
+import { hasDesignedPolicySelection } from '../features/challenge/policySelectionModel'
 import { findRiver } from '../features/game/model'
 import { useGameConfig } from '../features/game/useGameConfig'
 
@@ -15,6 +16,14 @@ export default function ChallengePage() {
         ? state.previousData
         : undefined
   const river = config ? findRiver(config, riverId) : undefined
+
+  if (config && river && hasDesignedPolicySelection(river.id)) {
+    return (
+      <main id="main-content" className="figma-challenge-page">
+        <ChallengeExperience key={river.id} config={config} river={river} />
+      </main>
+    )
+  }
 
   return (
     <PageLayout

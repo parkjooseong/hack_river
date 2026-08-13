@@ -256,9 +256,11 @@ export interface paths {
                     };
                 };
                 readonly 400: components["responses"]["ValidationError"];
+                readonly 401: components["responses"]["AuthenticationRequired"];
+                readonly 403: components["responses"]["AccessDenied"];
                 readonly 405: components["responses"]["MethodNotAllowed"];
                 readonly 500: components["responses"]["InternalServerError"];
-                readonly 503: components["responses"]["DatabaseUnavailable"];
+                readonly 503: components["responses"]["ServiceUnavailable"];
             };
         };
         readonly put?: never;
@@ -310,9 +312,11 @@ export interface paths {
                     };
                 };
                 readonly 400: components["responses"]["ValidationError"];
+                readonly 401: components["responses"]["AuthenticationRequired"];
+                readonly 403: components["responses"]["AccessDenied"];
                 readonly 405: components["responses"]["MethodNotAllowed"];
                 readonly 500: components["responses"]["InternalServerError"];
-                readonly 503: components["responses"]["DatabaseUnavailable"];
+                readonly 503: components["responses"]["ServiceUnavailable"];
             };
         };
         readonly put?: never;
@@ -345,6 +349,12 @@ export interface components {
         readonly GradeSymbol: "Ia" | "Ib" | "II" | "III" | "IV" | "V" | "VI";
         /** @enum {string} */
         readonly ResultStatus: "TRY_AGAIN" | "MISSION_COMPLETE" | "PERFECT_CLEAR";
+        /** @enum {string|null} */
+        readonly CompletionReason: "WATER_GOAL" | "BUDGET_EXHAUSTED" | null;
+        /** @enum {string} */
+        readonly PlayerProfileId: "WATER_QUALITY" | "ECOLOGY" | "CITIZEN" | "SMART_MANAGEMENT" | "BALANCED";
+        /** @enum {string} */
+        readonly PlayerProfileMetric: "waterQuality" | "ecology" | "citizen" | "monitoring" | "balanced";
         readonly ErrorDetail: {
             readonly field: string;
             readonly reason: string;
@@ -353,7 +363,7 @@ export interface components {
         readonly ErrorEnvelope: {
             readonly error: {
                 /** @enum {string} */
-                readonly code: "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "VALIDATION_ERROR" | "PERSONAL_INFORMATION_NOT_ALLOWED" | "DATABASE_UNAVAILABLE" | "INTERNAL_SERVER_ERROR" | "UNSUPPORTED_MEDIA_TYPE" | "INVALID_LENGTH" | "EMPTY_BODY" | "PAYLOAD_TOO_LARGE" | "INVALID_JSON";
+                readonly code: "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "VALIDATION_ERROR" | "PERSONAL_INFORMATION_NOT_ALLOWED" | "DATABASE_UNAVAILABLE" | "CANDIDATE_AUTH_REQUIRED" | "CANDIDATE_ACCESS_DENIED" | "CANDIDATE_AUTH_UNAVAILABLE" | "INTERNAL_SERVER_ERROR" | "UNSUPPORTED_MEDIA_TYPE" | "INVALID_LENGTH" | "EMPTY_BODY" | "PAYLOAD_TOO_LARGE" | "INVALID_JSON";
                 readonly message: string;
                 readonly details: readonly components["schemas"]["ErrorDetail"][];
                 readonly requestId: string;
@@ -521,6 +531,24 @@ export interface components {
             readonly citizen: number;
             readonly monitoring: number;
         };
+        readonly CompletionState: {
+            readonly canFinish: boolean;
+            readonly reason: components["schemas"]["CompletionReason"];
+            readonly budgetExhausted: boolean;
+        };
+        readonly PlayerProfileScores: {
+            readonly waterQuality: number;
+            readonly ecology: number;
+            readonly citizen: number;
+            readonly monitoring: number;
+        };
+        readonly PlayerProfile: {
+            readonly id: components["schemas"]["PlayerProfileId"];
+            readonly name: string;
+            readonly description: string;
+            readonly primaryMetric: components["schemas"]["PlayerProfileMetric"];
+            readonly scores: components["schemas"]["PlayerProfileScores"];
+        };
         readonly Recommendation: {
             readonly policyId: components["schemas"]["DirectPolicyId"];
             readonly policyName: string;
@@ -578,6 +606,8 @@ export interface components {
             readonly badges: readonly components["schemas"]["Badge"][];
             readonly strengths: readonly string[];
             readonly recommendations: readonly components["schemas"]["Recommendation"][];
+            readonly completion: components["schemas"]["CompletionState"];
+            readonly playerProfile: components["schemas"]["PlayerProfile"];
             /** @enum {boolean} */
             readonly isDemoData: true;
             readonly disclaimer: string;
@@ -775,6 +805,36 @@ export interface components {
         };
         /** @description 공유 데이터베이스 일시 장애 */
         readonly DatabaseUnavailable: {
+            headers: {
+                readonly "X-Request-ID": components["headers"]["RequestId"];
+                readonly [name: string]: unknown;
+            };
+            content: {
+                readonly "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description 후보자 로그인이 필요하거나 세션이 만료됨 */
+        readonly AuthenticationRequired: {
+            headers: {
+                readonly "X-Request-ID": components["headers"]["RequestId"];
+                readonly [name: string]: unknown;
+            };
+            content: {
+                readonly "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description 로그인한 계정에 후보자 대시보드 권한이 없음 */
+        readonly AccessDenied: {
+            headers: {
+                readonly "X-Request-ID": components["headers"]["RequestId"];
+                readonly [name: string]: unknown;
+            };
+            content: {
+                readonly "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description 공유 데이터베이스 또는 인증 서비스의 일시 장애 */
+        readonly ServiceUnavailable: {
             headers: {
                 readonly "X-Request-ID": components["headers"]["RequestId"];
                 readonly [name: string]: unknown;

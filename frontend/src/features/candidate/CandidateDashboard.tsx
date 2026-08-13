@@ -23,9 +23,11 @@ import {
 import { useCandidateComments, useCandidateReport } from './useCandidateData'
 
 type CandidateDashboardProps = {
+  accessToken: string
   filters: CandidateFilterState
   onSortChange: (sort: CandidateSort) => void
   onPageChange: (page: number) => void
+  onAuthenticationRequired: () => void
 }
 
 function PriorityGroups({ groups }: { groups: readonly CandidatePriorityGroup[] }) {
@@ -61,14 +63,16 @@ function PriorityGroups({ groups }: { groups: readonly CandidatePriorityGroup[] 
 }
 
 export function CandidateDashboard({
+  accessToken,
   filters,
   onSortChange,
   onPageChange,
+  onAuthenticationRequired,
 }: CandidateDashboardProps) {
   const reportQuery = useMemo(() => toCandidateReportQuery(filters), [filters])
   const commentsQuery = useMemo(() => toCandidateCommentsQuery(filters), [filters])
-  const report = useCandidateReport(reportQuery)
-  const comments = useCandidateComments(commentsQuery)
+  const report = useCandidateReport(reportQuery, accessToken)
+  const comments = useCandidateComments(commentsQuery, accessToken)
   const reportData =
     report.state.status === 'success' || report.state.status === 'empty'
       ? report.state.data
@@ -89,6 +93,15 @@ export function CandidateDashboard({
       onPageChange(totalPages)
     }
   }, [commentsData?.pagination.totalPages, filters.page, onPageChange])
+
+  useEffect(() => {
+    const authenticationExpired = [report.state, comments.state].some(
+      (state) => state.status === 'error' && state.error.status === 401,
+    )
+    if (authenticationExpired) {
+      onAuthenticationRequired()
+    }
+  }, [comments.state, onAuthenticationRequired, report.state])
 
   return (
     <div className="candidate-dashboard">

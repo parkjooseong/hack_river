@@ -13,6 +13,7 @@ BASE_SCORE = 30
 BADGE_SCORE_THRESHOLD = 70
 FRUGAL_REMAINING_BUDGET = 20
 MAX_RECOMMENDATIONS = 3
+PROFILE_BALANCE_GAP = 8
 EVENT_ID = "DOWNSTREAM_ODOR_SURGE"
 EVENT_TRIGGER_POLICY_COUNT = 2
 EVENT_CHOICES = {
@@ -130,13 +131,13 @@ class Badge:
 
 
 POLICIES = (
-    Policy("sewer", "노후 하수관 정비", 25, 8, 5, 0, "CLEAN UP", True),
-    Policy("treatment", "하천 정화시설 확대", 30, 10, 0, 0, "CLEAN UP", True),
-    Policy("sourceBlock", "오염원 유입 긴급 차단", 20, 0, 0, 15, "CLEAN UP", True),
-    Policy("ecology", "생태하천 복원", 20, 25, 10, 0, "CLEAN UP", True),
-    Policy("sensor", "스마트 수질센서 확대", 10, 0, 0, 30, "SMART UP", False),
-    Policy("monitoring", "주민 참여 모니터링", 10, 0, 15, 15, "SMART UP", False),
-    Policy("walking", "블루 워킹 로드 조성", 15, 3, 30, 0, "WALK UP", False),
+    Policy("sewer", "노후 하수관 정비", 25, 12, 6, 4, "CLEAN UP", True),
+    Policy("treatment", "하천 정화시설 확대", 30, 16, 5, 3, "CLEAN UP", True),
+    Policy("sourceBlock", "오염원 유입 긴급 차단", 20, 10, 4, 14, "CLEAN UP", True),
+    Policy("ecology", "생태하천 복원", 25, 28, 12, 2, "CLEAN UP", True),
+    Policy("sensor", "스마트 수질센서 확대", 15, 3, 8, 26, "SMART UP", False),
+    Policy("monitoring", "주민 참여 모니터링", 10, 5, 16, 18, "SMART UP", False),
+    Policy("walking", "블루 워킹 로드 조성", 15, 6, 28, 2, "WALK UP", False),
 )
 POLICY_BY_ID = {policy.id: policy for policy in POLICIES}
 
@@ -148,6 +149,34 @@ POLICY_STRENGTHS = {
     "sensor": "수질 변화를 빠르게 발견할 수 있는 관리 능력을 높였습니다.",
     "monitoring": "주민 참여를 늘려 시민 공감과 관리 역량을 함께 높였습니다.",
     "walking": "수변 이용 환경을 개선해 시민 만족도를 높였습니다.",
+}
+
+PLAYER_PROFILES = {
+    "WATER_QUALITY": {
+        "name": "맑은 물 해결사",
+        "description": "BOD를 직접 낮추는 수질 개선 정책에 가장 큰 비중을 두었습니다.",
+        "primaryMetric": "waterQuality",
+    },
+    "ECOLOGY": {
+        "name": "생태 회복 설계자",
+        "description": "하천 생물과 자연 회복 효과를 가장 중요하게 선택했습니다.",
+        "primaryMetric": "ecology",
+    },
+    "CITIZEN": {
+        "name": "시민 행복 설계자",
+        "description": "시민이 체감하는 이용 환경과 만족도를 가장 중요하게 선택했습니다.",
+        "primaryMetric": "citizen",
+    },
+    "SMART_MANAGEMENT": {
+        "name": "스마트 하천 지킴이",
+        "description": "센서와 시민 모니터링을 통한 지속적인 관리를 가장 중요하게 선택했습니다.",
+        "primaryMetric": "monitoring",
+    },
+    "BALANCED": {
+        "name": "균형 잡힌 정책가",
+        "description": "두 가지 이상의 정책 가치를 비슷한 비중으로 조합했습니다.",
+        "primaryMetric": "balanced",
+    },
 }
 
 BADGES = (
@@ -451,6 +480,63 @@ def _award_badges(result: dict[str, Any]) -> list[dict[str, str]]:
     return [BADGE_BY_ID[badge_id].to_dict() for badge_id in awarded_ids]
 
 
+def _completion_state(result: dict[str, Any], selected_ids: list[str]) -> dict[str, Any]:
+    selected_set = set(selected_ids)
+    unselected_costs = [
+        policy.cost for policy in POLICIES if policy.id not in selected_set
+    ]
+    budget_exhausted = not unselected_costs or min(unselected_costs) > result["remainingBudget"]
+    if result["missionSuccess"]:
+        reason = "WATER_GOAL"
+    elif budget_exhausted:
+        reason = "BUDGET_EXHAUSTED"
+    else:
+        reason = None
+    return {
+        "canFinish": reason is not None,
+        "reason": reason,
+        "budgetExhausted": budget_exhausted,
+    }
+
+
+def _normalized_profile_score(value: int) -> int:
+    return round(max(0, value - BASE_SCORE) / (100 - BASE_SCORE) * 100)
+
+
+def _player_profile(result: dict[str, Any]) -> dict[str, Any]:
+    water_target_gap = max(
+        Decimal("0.1"), Decimal(str(result["initialBod"])) - Decimal("2.0")
+    )
+    water_quality = round(
+        min(
+            Decimal("1"),
+            Decimal(str(result["bodReduction"])) / water_target_gap,
+        )
+        * 100
+    )
+    scores = {
+        "waterQuality": water_quality,
+        "ecology": _normalized_profile_score(result["scores"]["ecology"]),
+        "citizen": _normalized_profile_score(result["scores"]["citizen"]),
+        "monitoring": _normalized_profile_score(result["scores"]["monitoring"]),
+    }
+    metric_to_profile = {
+        "waterQuality": "WATER_QUALITY",
+        "ecology": "ECOLOGY",
+        "citizen": "CITIZEN",
+        "monitoring": "SMART_MANAGEMENT",
+    }
+    ranked = sorted(
+        scores.items(),
+        key=lambda item: (-item[1], tuple(scores).index(item[0])),
+    )
+    profile_id = metric_to_profile[ranked[0][0]]
+    if ranked[1][1] > 0 and ranked[0][1] - ranked[1][1] <= PROFILE_BALANCE_GAP:
+        profile_id = "BALANCED"
+    presentation = PLAYER_PROFILES[profile_id]
+    return {"id": profile_id, **presentation, "scores": scores}
+
+
 def _result_message(result: dict[str, Any]) -> str:
     if result["resultStatus"] != "TRY_AGAIN":
         return RESULT_PRESENTATIONS[result["resultStatus"]]["message"]
@@ -565,6 +651,8 @@ def simulate(
             "recommendations": _build_recommendations(
                 river, selected_ids, result, validated_event_choice
             ),
+            "completion": _completion_state(result, selected_ids),
+            "playerProfile": _player_profile(result),
         }
     )
     return result
@@ -573,7 +661,7 @@ def simulate(
 def game_config() -> dict[str, Any]:
     return {
         "serviceName": SERVICE_NAME,
-        "version": "2026-08-demo-v4",
+        "version": "2026-08-demo-v5",
         "maxBudget": MAX_BUDGET,
         "minimumBod": float(MIN_BOD),
         "baseScore": BASE_SCORE,

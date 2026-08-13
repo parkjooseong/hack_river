@@ -27,6 +27,7 @@ const submissionRequest = {
   comment: '악취 문제부터 해결해 주세요.',
   consentToAggregate: true,
 } as const satisfies SubmissionRequest
+const candidateAccessToken = 'candidate-access-token'
 
 describe('RiverApi', () => {
   it('7개 백엔드 API의 정상 mock 응답을 제공한다', async () => {
@@ -39,26 +40,35 @@ describe('RiverApi', () => {
     await expect(api.simulate(simulationRequest)).resolves.toEqual(mockSimulationResult)
     await expect(api.submitResponse(submissionRequest)).resolves.toEqual(mockSubmissionResponse)
     await expect(api.getStatistics()).resolves.toEqual(mockStatistics)
-    await expect(api.getCandidateReport()).resolves.toEqual(mockCandidateReport)
-    await expect(api.getCandidateComments()).resolves.toEqual(mockCandidateCommentsPage)
+    await expect(api.getCandidateReport(candidateAccessToken)).resolves.toEqual(mockCandidateReport)
+    await expect(api.getCandidateComments(candidateAccessToken)).resolves.toEqual(
+      mockCandidateCommentsPage,
+    )
   })
 
   it('후보자 조회 조건을 query string으로 전달한다', async () => {
     const requestedUrls: string[] = []
+    const requestedAuthorizations: Array<string | null> = []
     const baseFetch = createMockFetch()
     const recordingFetch: FetchLike = (input, init) => {
       requestedUrls.push(String(input))
+      const headers = new Headers(init?.headers)
+      requestedAuthorizations.push(headers.get('Authorization'))
       return baseFetch(input, init)
     }
     const api = new RiverApi(new ApiClient({ baseUrl: 'http://mock.local', fetch: recordingFetch }))
 
-    await api.getCandidateReport({
+    await api.getCandidateReport(candidateAccessToken, {
       riverId: 'dongcheon',
       district: 'busanjin',
       from: '2026-08-01',
       to: '2026-08-13',
     })
-    await api.getCandidateComments({ page: 2, pageSize: 20, sort: 'oldest' })
+    await api.getCandidateComments(candidateAccessToken, {
+      page: 2,
+      pageSize: 20,
+      sort: 'oldest',
+    })
 
     expect(requestedUrls[0]).toBe(
       'http://mock.local/api/candidate/report?riverId=dongcheon&district=busanjin&from=2026-08-01&to=2026-08-13',
@@ -66,6 +76,10 @@ describe('RiverApi', () => {
     expect(requestedUrls[1]).toBe(
       'http://mock.local/api/candidate/comments?page=2&pageSize=20&sort=oldest',
     )
+    expect(requestedAuthorizations).toEqual([
+      `Bearer ${candidateAccessToken}`,
+      `Bearer ${candidateAccessToken}`,
+    ])
   })
 
   it('새 시뮬레이션 요청이 이전 요청을 취소한다', async () => {

@@ -13,6 +13,7 @@ type RequestOptions = {
   body?: unknown
   signal?: AbortSignal
   timeoutMs?: number
+  accessToken?: string
 }
 
 type ErrorPayload = {
@@ -153,6 +154,7 @@ export class ApiClient {
         headers: {
           Accept: 'application/json',
           ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+          ...(options.accessToken ? { Authorization: `Bearer ${options.accessToken}` } : {}),
         },
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
         signal,

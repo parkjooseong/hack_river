@@ -15,13 +15,16 @@
     "lint": "eslint .",
     "typecheck": "tsc -b",
     "test": "vitest run --passWithNoTests",
-    "check": "npm run api:types:check && npm run lint && npm run typecheck && npm run test",
+    "check": "npm run api:types:check && npm run verify:design-ready && npm run lint && npm run typecheck && npm run test",
+    "verify:design-ready": "node scripts/verify-design-readiness.mjs",
+    "test:design-ready": "npm run verify:design-ready && vitest run src/test",
     "api:types": "openapi-typescript ../backend/openapi.yaml -o src/api/schema.d.ts --immutable",
     "api:types:check": "openapi-typescript ../backend/openapi.yaml -o src/api/schema.d.ts --immutable --check",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2"

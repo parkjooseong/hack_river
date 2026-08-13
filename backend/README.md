@@ -33,6 +33,7 @@ python3 scripts/predeploy_check.py --check-database
 | `GET`  | `/api/candidate/comments` | 후보자용 시민 의견 페이지 조회 |
 
 프런트엔드 연동의 단일 기준은 `openapi.yaml`입니다. 확정 규칙과 변경 순서는 [API_CONTRACT.md](API_CONTRACT.md)를 확인하세요.
+후보자 대시보드 계정·비밀번호 설정은 [CANDIDATE_AUTH_SETUP.md](CANDIDATE_AUTH_SETUP.md)를 따릅니다.
 
 계산 요청 예시:
 
@@ -82,6 +83,8 @@ python3 scripts/predeploy_check.py --check-database
 - `strengths`: 선택한 각 정책의 장점 설명
 - `remainingBodToMission`: 좋음 등급까지 남은 BOD
 - `recommendations`: 실패 시 남은 예산으로 추가 가능한 직접 수질개선 정책 최대 3개와 예상 결과
+- `completion`: BOD 2.0mg/L 이하 달성 또는 남은 예산으로 미선택 정책을 더 살 수 없는지 판정
+- `playerProfile`: 수질·생태·시민·스마트관리 영향도와 이를 기반으로 한 5개 정책 유형
 
 추천 정책은 이미 선택한 정책을 제외하고 예산 안에서만 계산합니다. 예상 BOD·등급·결과 상태·잔여 예산도 서버가 같은 시뮬레이션 규칙으로 다시 계산해 제공합니다. 성공 또는 퍼펙트 결과에는 추천 정책을 제공하지 않습니다.
 
@@ -146,8 +149,10 @@ GET /api/candidate/comments?riverId=dongcheon&page=1&pageSize=20&sort=latest
 STORAGE_BACKEND=supabase
 SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_REPLACE_ME
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_ME
+CANDIDATE_AUTH_EMAIL=candidate@your-domain.example
 ALLOWED_ORIGINS=https://YOUR_FRONTEND_DOMAIN
 BACKUP_POLICY_CONFIRMED=true
 ```
 
-Secret key는 서버에서만 사용하며 프런트엔드나 GitHub에 포함하지 않습니다. Supabase 장애가 발생하면 저장·통계 API는 내부 접속 정보를 노출하지 않고 `503 DATABASE_UNAVAILABLE`을 반환합니다.
+Secret key는 서버에서만 사용하며 프런트엔드나 GitHub에 포함하지 않습니다. 후보자 계정 비밀번호도 `.env`에 저장하지 않습니다. Supabase 장애가 발생하면 저장·통계 API는 내부 접속 정보를 노출하지 않고 `503 DATABASE_UNAVAILABLE`을 반환합니다.

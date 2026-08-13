@@ -12,6 +12,7 @@ from uuid import UUID
 import yaml
 
 from river_api.application import Application
+from river_api.candidate_auth import CandidateAuthorizationError
 from river_api.repository import SQLiteResponseRepository
 from river_api.service import RiverService
 
@@ -151,7 +152,7 @@ class OpenApiContractTests(unittest.TestCase):
         self.temp_directory = tempfile.TemporaryDirectory()
         repository = SQLiteResponseRepository(Path(self.temp_directory.name) / "responses.sqlite3")
         repository.initialize()
-        self.application = Application(RiverService(repository))
+        self.application = Application(RiverService(repository), lambda _token: None)
 
     def tearDown(self) -> None:
         self.temp_directory.cleanup()
@@ -217,6 +218,21 @@ class OpenApiContractTests(unittest.TestCase):
         status, response = self.application.dispatch("POST", "/health")
         self.assertEqual(status, 405)
         schema = self.validator.response_schema("GET", "/health", status)
+        self.validator.validate(response, schema)
+
+    def test_candidate_authentication_error_matches_openapi(self) -> None:
+        def reject(_token: str | None) -> None:
+            raise CandidateAuthorizationError(
+                401,
+                "CANDIDATE_AUTH_REQUIRED",
+                "후보자 로그인이 필요합니다.",
+            )
+
+        application = Application(self.application.service, reject)
+        status, response = application.dispatch("GET", "/api/candidate/report")
+
+        self.assertEqual(status, 401)
+        schema = self.validator.response_schema("GET", "/api/candidate/report", status)
         self.validator.validate(response, schema)
 
 

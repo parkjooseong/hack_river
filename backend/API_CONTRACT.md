@@ -28,6 +28,15 @@
 - 요청 객체의 정의되지 않은 필드와 응답 객체의 예상하지 못한 필드를 허용하지 않습니다.
 - BOD·등급·예산·점수·결과 판정은 백엔드만 계산하며 프론트는 응답을 표시만 합니다.
 - `RiverId`, `PolicyId`, `DistrictId`, `TopPriorityId`, `EventChoiceId`는 OpenAPI에 선언된 열거형만 사용합니다.
+- 후보자 API 두 개는 `Authorization: Bearer <Supabase access token>`을 필수로 받고, 서버가 Supabase Auth 사용자와 허용된 후보자 이메일을 모두 확인합니다.
+
+## 게임 진행 계약
+
+- 프론트는 7개 정책 중 아직 선택하지 않은 후보를 랜덤으로 최대 3개만 표시합니다.
+- 선택한 정책 ID 순서는 `policyIds`로 서버에 보내며, 서버는 중복·예산·효과를 다시 검증합니다.
+- `completion.canFinish`는 BOD 2.0mg/L 이하 달성 또는 남은 예산으로 미선택 정책을 더 살 수 없을 때만 `true`입니다.
+- `completion.reason`은 `WATER_GOAL`, `BUDGET_EXHAUSTED`, 아직 진행 중인 경우 `null`입니다.
+- `playerProfile`은 수질·생태·시민·스마트관리 영향도와 5개 정책 유형 판정을 반환합니다.
 
 ## 변경 순서
 

@@ -25,6 +25,7 @@ export type RiverOption = {
   initialBod: number
   initialGrade: Grade
   difficulty: string
+  policyEffects: Readonly<Partial<Record<PolicyId, number>>>
 }
 
 export type PolicyOption = {
@@ -60,6 +61,7 @@ export type AppGameConfig = {
   serviceName: string
   maxBudget: number
   baseScore: number
+  successThresholdBod: number
   rivers: readonly RiverOption[]
   policies: readonly PolicyOption[]
   priorities: readonly NamedOption<TopPriority>[]
@@ -99,6 +101,7 @@ function parseRivers(config: GameConfig) {
         initialBod: river.initialBod,
         initialGrade: river.initialGrade,
         difficulty: difficultyLabel(river.difficulty),
+        policyEffects: river.policyEffects,
       }) satisfies RiverOption,
   )
 }
@@ -151,6 +154,7 @@ export function normalizeGameConfig(config: GameConfig): AppGameConfig {
     serviceName: config.serviceName,
     maxBudget: config.maxBudget,
     baseScore: config.baseScore,
+    successThresholdBod: config.successThresholdBod,
     rivers,
     policies,
     priorities: config.priorities,

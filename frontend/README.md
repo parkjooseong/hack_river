@@ -60,19 +60,20 @@ Vite의 `VITE_` 접두사가 붙은 값은 브라우저 번들에 포함될 수 
 
 ## 명령
 
-| 명령                      | 설명                                     |
-| ------------------------- | ---------------------------------------- |
-| `npm run dev`             | 개발 서버 실행                           |
-| `npm run build`           | 타입 검사 후 운영 빌드 생성              |
-| `npm run preview`         | 운영 빌드 미리보기                       |
-| `npm run lint`            | ESLint 검사                              |
-| `npm run typecheck`       | TypeScript 검사                          |
-| `npm run test`            | Vitest 단위 테스트 실행                  |
-| `npm run check`           | OpenAPI, lint, typecheck, test 전체 검사 |
-| `npm run api:types`       | OpenAPI에서 TypeScript 타입 다시 생성    |
-| `npm run api:types:check` | OpenAPI와 생성된 타입의 일치 여부 검사   |
-| `npm run format`          | Prettier로 파일 정리                     |
-| `npm run format:check`    | Prettier 형식 검사                       |
+| 명령                        | 설명                                                  |
+| --------------------------- | ----------------------------------------------------- |
+| `npm run dev`               | 개발 서버 실행                                        |
+| `npm run build`             | 타입 검사 후 운영 빌드 생성                           |
+| `npm run preview`           | 운영 빌드 미리보기                                    |
+| `npm run lint`              | ESLint 검사                                           |
+| `npm run typecheck`         | TypeScript 검사                                       |
+| `npm run test`              | Vitest 단위 테스트 실행                               |
+| `npm run test:design-ready` | 디자인 전 화면·접근성·반응형 기반 검사                |
+| `npm run check`             | OpenAPI, 디자인 기반, lint, typecheck, test 전체 검사 |
+| `npm run api:types`         | OpenAPI에서 TypeScript 타입 다시 생성                 |
+| `npm run api:types:check`   | OpenAPI와 생성된 타입의 일치 여부 검사                |
+| `npm run format`            | Prettier로 파일 정리                                  |
+| `npm run format:check`      | Prettier 형식 검사                                    |
 
 ## 라우트
 
@@ -182,7 +183,7 @@ export function ChallengePreview() {
 - URL query string을 이용한 필터·정렬·페이지 복원과 링크 공유
 - `PDF로 저장·인쇄` 버튼과 A4 인쇄 전용 레이아웃
 
-필터 예시는 `/candidate?riverId=dongcheon&district=busanjin&sort=oldest&page=2`입니다. 존재하지 않는 페이지 번호는 해당 조건의 마지막 유효 페이지로 자동 복구합니다. 현재 MVP의 후보자 화면은 로그인 없이 열리므로 실제 외부 공개 전 인증·공유 범위와 검색 노출 정책을 확정해야 합니다.
+필터 예시는 `/candidate?riverId=dongcheon&district=busanjin&sort=oldest&page=2`입니다. 존재하지 않는 페이지 번호는 해당 조건의 마지막 유효 페이지로 자동 복구합니다. 후보자 화면은 Supabase Auth 비밀번호 로그인 후에만 열리며, 리포트·의견 API도 같은 액세스 토큰을 검증합니다. 계정 생성과 환경변수는 [`backend/CANDIDATE_AUTH_SETUP.md`](../backend/CANDIDATE_AUTH_SETUP.md)를 따릅니다.
 
 ### 챌린지 상태 복구
 
@@ -220,8 +221,8 @@ try {
 - `simulate(request)`
 - `submitResponse(request)`
 - `getStatistics()`
-- `getCandidateReport(query)`
-- `getCandidateComments(query)`
+- `getCandidateReport(accessToken, query)`
+- `getCandidateComments(accessToken, query)`
 
 시뮬레이션 요청은 새 요청이 시작되면 이전 요청을 취소합니다. 응답 제출은 처리 중인 요청을 공유해 중복 전송을 막습니다.
 

@@ -1,4 +1,4 @@
-# 1mg Challenge Backend
+# 강 새로이 Backend
 
 기획안의 디자인 비의존 기능을 먼저 구현한 Python 3.12 API입니다. 외부 패키지 없이 실행되며, 서버가 BOD·등급·예산·점수를 다시 계산한 뒤 익명 응답만 저장합니다. 로컬 SQLite와 Supabase 공유 DB를 선택할 수 있습니다.
 
@@ -24,6 +24,7 @@ python3 -m river_api
 | `POST` | `/api/responses` | 동의한 익명 결과 저장 |
 | `GET` | `/api/stats` | 시민 통계 |
 | `GET` | `/api/candidate/report` | 후보자 리포트 집계 |
+| `GET` | `/api/candidate/comments` | 후보자용 시민 의견 페이지 조회 |
 
 프런트엔드 연동 계약은 `openapi.yaml`에도 정리되어 있습니다.
 
@@ -32,7 +33,8 @@ python3 -m river_api
 ```json
 {
   "riverId": "dongcheon",
-  "policyIds": ["sewer", "treatment", "sourceBlock"]
+  "policyIds": ["sewer", "treatment", "sourceBlock"],
+  "eventChoice": "INVESTIGATE"
 }
 ```
 
@@ -42,6 +44,7 @@ python3 -m river_api
 {
   "riverId": "dongcheon",
   "policyIds": ["sewer", "treatment", "sourceBlock"],
+  "eventChoice": "INVESTIGATE",
   "topPriority": "source_control",
   "district": "busanjin",
   "comment": "생활하수 문제부터 해결해 주세요.",
@@ -50,6 +53,53 @@ python3 -m river_api
 ```
 
 `finalBod`, 점수, 성공 여부 같은 계산 결과는 클라이언트가 저장 요청에 넣을 수 없습니다. 서버가 정책 ID를 기준으로 다시 계산합니다. 이름·전화번호·이메일·정확한 주소처럼 정의되지 않은 필드도 거부합니다.
+
+## 돌발상황
+
+정책이 두 개 이상이면 `하류 악취 신고 급증` 이벤트가 한 번 활성화됩니다.
+
+- 계산 요청에서 `eventChoice`를 생략하면 `event.status`가 `PENDING`으로 반환됩니다.
+- `INVESTIGATE`는 추가 조사 비용 5억원, 관리 능력 +10, 시민 만족도 +5를 반영합니다.
+- 스마트 수질센서가 포함되면 조사 비용은 0억원, 관리 능력은 +15가 되며 시민 만족도 +5는 유지됩니다.
+- `WAIT`는 비용 없이 시민 만족도 -10과 임시 캐릭터 상태 `WORRIED`를 반환합니다.
+- 최종 저장에서 정책이 두 개 이상이면 `eventChoice`가 필수입니다. 한 개만 선택한 경우에는 이벤트가 발생하지 않습니다.
+- 정책비와 이벤트비의 합계가 100억원을 넘으면 요청을 거부합니다.
+
+`/api/stats`와 후보자 리포트의 `eventStatistics`에는 이벤트 대상자·응답률·선택률·센서 활용 조사율이 포함됩니다.
+
+## 결과 안내
+
+`POST /api/simulations`와 응답 저장 결과에는 프런트엔드가 별도 계산 없이 결과 화면을 만들 수 있도록 다음 항목이 포함됩니다.
+
+- `resultStatus`, `resultTitle`, `resultMessage`: 실패·성공·퍼펙트 상태와 안내 문구
+- `badges`: 확정 기준으로 판정한 배지 ID·이름·설명
+- `strengths`: 선택한 각 정책의 장점 설명
+- `remainingBodToMission`: 좋음 등급까지 남은 BOD
+- `recommendations`: 실패 시 남은 예산으로 추가 가능한 직접 수질개선 정책 최대 3개와 예상 결과
+
+추천 정책은 이미 선택한 정책을 제외하고 예산 안에서만 계산합니다. 예상 BOD·등급·결과 상태·잔여 예산도 서버가 같은 시뮬레이션 규칙으로 다시 계산해 제공합니다. 성공 또는 퍼펙트 결과에는 추천 정책을 제공하지 않습니다.
+
+배지 기준은 좋음 달성 `BOD ≤ 2.0`, 1mg 퍼펙트 `BOD ≤ 1.0`, 생태·시민·관리 점수 각각 `70점 이상`, 알뜰 정책 `미션 성공 및 잔여 예산 20억원 이상`입니다. 퍼펙트 달성 시 좋음 달성 배지도 함께 지급합니다.
+
+## 후보자 리포트와 의견 조회
+
+후보자 리포트는 하천·지역·기간을 각각 또는 함께 필터링할 수 있습니다.
+
+```text
+GET /api/candidate/report?riverId=dongcheon&district=busanjin&from=2026-08-01&to=2026-08-31
+```
+
+의견 전용 API는 같은 필터와 함께 페이지·정렬 조건을 지원합니다.
+
+```text
+GET /api/candidate/comments?riverId=dongcheon&page=1&pageSize=20&sort=latest
+```
+
+- `from`, `to`는 `YYYY-MM-DD` 형식이며 저장된 UTC 날짜를 기준으로 양끝을 모두 포함합니다.
+- `page` 기본값은 1, `pageSize` 기본값은 20이고 최대 100입니다.
+- `sort`는 최신순 `latest` 또는 오래된 순 `oldest`입니다.
+- 빈 조회 결과도 `200`과 빈 집계를 반환합니다.
+- 의견 응답에는 전체 의견 수, 전체 페이지 수, 이전·다음 페이지 여부가 포함됩니다.
 
 ## 개인정보와 오류 처리
 
@@ -69,7 +119,7 @@ python3 -m river_api
 
 ## 공유 DB 배포 메모
 
-현재 SQLite 저장소는 로컬 개발과 단일 서버 MVP에 적합합니다. 여러 서버 인스턴스로 배포할 때는 `migrations/001_postgresql_responses.sql`을 Supabase SQL Editor에서 실행하고 `.env` 또는 배포 환경변수에 다음 값을 입력합니다.
+현재 SQLite 저장소는 로컬 개발과 단일 서버 MVP에 적합합니다. 여러 서버 인스턴스로 배포할 때는 `migrations/001_postgresql_responses.sql`, `migrations/002_candidate_query_indexes.sql`, `migrations/003_add_event_result.sql`을 순서대로 Supabase SQL Editor에서 실행하고 `.env` 또는 배포 환경변수에 다음 값을 입력합니다.
 
 ```dotenv
 STORAGE_BACKEND=supabase

@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from river_api.application import error_payload
-from river_api.http_server import _is_json_content_type
+from river_api.http_server import _is_json_content_type, _query_parameters
 
 
 class HttpBoundaryTests(unittest.TestCase):
@@ -20,6 +20,13 @@ class HttpBoundaryTests(unittest.TestCase):
             set(payload["error"]), {"code", "message", "details", "requestId"}
         )
         self.assertEqual(payload["error"]["details"], [])
+
+    def test_query_parameters_preserve_repeated_and_blank_values(self) -> None:
+        query = _query_parameters(
+            "/api/candidate/comments?riverId=dongcheon&riverId=oncheoncheon&sort="
+        )
+        self.assertEqual(query["riverId"], ["dongcheon", "oncheoncheon"])
+        self.assertEqual(query["sort"], [""])
 
 
 if __name__ == "__main__":

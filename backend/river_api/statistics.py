@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from collections import Counter, defaultdict
+from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from .domain import (
     DISTRICT_BY_ID,
+    EVENT_CHOICES,
+    EVENT_ID,
+    EVENT_TRIGGER_POLICY_COUNT,
     POLICIES,
     POLICY_BY_ID,
     PRIORITIES,
@@ -53,6 +56,43 @@ def _priority_stats(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         }
         for priority_id, name in PRIORITIES
     ]
+
+
+def _event_statistics(records: list[dict[str, Any]]) -> dict[str, Any]:
+    eligible = [
+        record
+        for record in records
+        if len(record.get("policyOrder", [])) >= EVENT_TRIGGER_POLICY_COUNT
+    ]
+    resolved = [
+        record for record in eligible if record.get("eventChoice") in EVENT_CHOICES
+    ]
+    counts = Counter(record["eventChoice"] for record in resolved)
+    investigate = [
+        record for record in resolved if record["eventChoice"] == "INVESTIGATE"
+    ]
+    sensor_assisted_count = sum(
+        "sensor" in record.get("policyOrder", []) for record in investigate
+    )
+    return {
+        "eventId": EVENT_ID,
+        "eligibleParticipants": len(eligible),
+        "respondedParticipants": len(resolved),
+        "responseRate": _rate(len(resolved), len(eligible)),
+        "choices": [
+            {
+                "id": choice_id,
+                "name": choice_name,
+                "count": counts[choice_id],
+                "rate": _rate(counts[choice_id], len(resolved)),
+            }
+            for choice_id, choice_name in EVENT_CHOICES.items()
+        ],
+        "sensorAssistedInvestigations": {
+            "count": sensor_assisted_count,
+            "rate": _rate(sensor_assisted_count, len(investigate)),
+        },
+    }
 
 
 def _river_stats(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -103,6 +143,26 @@ def _grade_distribution(records: list[dict[str, Any]]) -> dict[str, list[dict[st
     }
 
 
+def _candidate_comment(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": record["id"],
+        "riverId": record["riverId"],
+        "riverName": RIVER_BY_ID[record["riverId"]].name,
+        "district": record["district"],
+        "districtName": DISTRICT_BY_ID[record["district"]],
+        "topPriority": record["topPriority"],
+        "topPriorityName": PRIORITY_BY_ID[record["topPriority"]],
+        "comment": record["comment"],
+        "createdAt": record["createdAt"],
+    }
+
+
+def build_candidate_comments(
+    records: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    return [_candidate_comment(record) for record in records if record["comment"]]
+
+
 def build_statistics(records: list[dict[str, Any]]) -> dict[str, Any]:
     total = len(records)
     seoul_today = datetime.now(timezone.utc).astimezone(ZoneInfo("Asia/Seoul")).date()
@@ -120,18 +180,7 @@ def build_statistics(records: list[dict[str, Any]]) -> dict[str, Any]:
         areas = {POLICY_BY_ID[policy_id].pledge_area for policy_id in record["policyOrder"]}
         area_counts.update(areas)
 
-    comments = [
-        {
-            "riverId": record["riverId"],
-            "riverName": RIVER_BY_ID[record["riverId"]].name,
-            "district": record["district"],
-            "districtName": DISTRICT_BY_ID[record["district"]],
-            "comment": record["comment"],
-            "createdAt": record["createdAt"],
-        }
-        for record in records
-        if record["comment"]
-    ][:50]
+    comments = build_candidate_comments(records)[:50]
 
     policy_selection = _policy_stats(records)
     most_selected = max(policy_selection, key=lambda item: item["count"]) if total else None
@@ -163,6 +212,7 @@ def build_statistics(records: list[dict[str, Any]]) -> dict[str, Any]:
             }
             for area in ("CLEAN UP", "SMART UP", "WALK UP")
         ],
+        "eventStatistics": _event_statistics(records),
         "comments": comments,
         "isDemoData": True,
         "disclaimer": SIMULATION_DISCLAIMER,
@@ -171,32 +221,37 @@ def build_statistics(records: list[dict[str, Any]]) -> dict[str, Any]:
 
 def build_candidate_report(records: list[dict[str, Any]]) -> dict[str, Any]:
     stats = build_statistics(records)
-    by_district: dict[str, Counter[str]] = defaultdict(Counter)
-    for record in records:
-        by_district[record["district"]][record["topPriority"]] += 1
-
     district_priorities = []
-    for district_id, counts in by_district.items():
-        total = sum(counts.values())
-        district_priorities.append(
-            {
-                "district": district_id,
-                "districtName": DISTRICT_BY_ID[district_id],
-                "priorities": [
-                    {
-                        "id": priority_id,
-                        "name": PRIORITY_BY_ID[priority_id],
-                        "count": count,
-                        "rate": _rate(count, total),
-                    }
-                    for priority_id, count in counts.most_common()
-                ],
-            }
-        )
+    for district_id, district_name in DISTRICT_BY_ID.items():
+        district_records = [
+            record for record in records if record["district"] == district_id
+        ]
+        if district_records:
+            district_priorities.append(
+                {
+                    "district": district_id,
+                    "districtName": district_name,
+                    "totalParticipants": len(district_records),
+                    "priorities": _priority_stats(district_records),
+                }
+            )
+
+    river_priorities = []
+    for river in RIVERS:
+        river_records = [record for record in records if record["riverId"] == river.id]
+        if river_records:
+            river_priorities.append(
+                {
+                    "riverId": river.id,
+                    "riverName": river.name,
+                    "totalParticipants": len(river_records),
+                    "priorities": _priority_stats(river_records),
+                }
+            )
 
     created_values = sorted(record["createdAt"] for record in records)
     return {
-        "title": "부산 하천 시민 정책 리포트",
+        "title": "강 새로이 시민 정책 리포트",
         "period": {
             "from": created_values[0] if created_values else None,
             "to": created_values[-1] if created_values else None,
@@ -215,7 +270,9 @@ def build_candidate_report(records: list[dict[str, Any]]) -> dict[str, Any]:
         "policySelection": stats["policySelection"],
         "topPriorities": stats["topPriorities"],
         "pledgeAreaSelection": stats["pledgeAreaSelection"],
+        "eventStatistics": stats["eventStatistics"],
         "perRiver": stats["riverParticipation"],
+        "prioritiesByRiver": river_priorities,
         "prioritiesByDistrict": district_priorities,
         "comments": stats["comments"],
         "methodology": {

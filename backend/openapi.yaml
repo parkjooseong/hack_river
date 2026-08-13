@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: 1mg Challenge API
-  version: 0.1.0
+  title: 강 새로이 API
+  version: 0.4.0
   description: |
     부산 하천 정책 체험용 API입니다. BOD 변화량은 게임용 데모 값이며
     실제 수질 개선을 예측하거나 보장하지 않습니다. 모든 HTTP 응답은
@@ -19,10 +19,11 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [status, service]
+                required: [status, service, name]
                 properties:
                   status: {type: string, example: ok}
-                  service: {type: string, example: 1mg-challenge-api}
+                  service: {type: string, example: gang-saeroi-api}
+                  name: {type: string, example: 강 새로이}
         '405': {$ref: '#/components/responses/MethodNotAllowed'}
         '500': {$ref: '#/components/responses/InternalServerError'}
   /api/game/config:
@@ -97,18 +98,74 @@ paths:
   /api/candidate/report:
     get:
       summary: 후보자용 정책 리포트 데이터 조회
+      description: 날짜 필터는 저장된 UTC 날짜를 기준으로 시작일과 종료일을 모두 포함합니다.
+      parameters:
+        - {$ref: '#/components/parameters/CandidateRiverId'}
+        - {$ref: '#/components/parameters/CandidateDistrict'}
+        - {$ref: '#/components/parameters/CandidateFromDate'}
+        - {$ref: '#/components/parameters/CandidateToDate'}
       responses:
         '200':
           description: 인쇄용 화면에 사용할 리포트 집계
           content:
             application/json:
-              schema:
-                type: object
-                additionalProperties: true
+              schema: {$ref: '#/components/schemas/CandidateReport'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
+        '405': {$ref: '#/components/responses/MethodNotAllowed'}
+        '500': {$ref: '#/components/responses/InternalServerError'}
+  /api/candidate/comments:
+    get:
+      summary: 후보자용 시민 의견 목록 조회
+      description: 내용이 있는 익명 의견만 필터링해 페이지 단위로 제공합니다.
+      parameters:
+        - {$ref: '#/components/parameters/CandidateRiverId'}
+        - {$ref: '#/components/parameters/CandidateDistrict'}
+        - {$ref: '#/components/parameters/CandidateFromDate'}
+        - {$ref: '#/components/parameters/CandidateToDate'}
+        - name: page
+          in: query
+          schema: {type: integer, minimum: 1, default: 1}
+        - name: pageSize
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+        - name: sort
+          in: query
+          schema: {type: string, enum: [latest, oldest], default: latest}
+      responses:
+        '200':
+          description: 필터와 정렬이 적용된 의견 페이지
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CandidateCommentsPage'}
+        '400': {$ref: '#/components/responses/ValidationError'}
         '503': {$ref: '#/components/responses/DatabaseUnavailable'}
         '405': {$ref: '#/components/responses/MethodNotAllowed'}
         '500': {$ref: '#/components/responses/InternalServerError'}
 components:
+  parameters:
+    CandidateRiverId:
+      name: riverId
+      in: query
+      schema:
+        type: string
+        enum: [dongcheon, goejeongcheon, oncheoncheon]
+    CandidateDistrict:
+      name: district
+      in: query
+      schema:
+        type: string
+        enum: [geumjeong, dongnae, busanjin, saha, other, prefer_not]
+    CandidateFromDate:
+      name: from
+      in: query
+      description: UTC 기준 시작일이며 해당 날짜를 포함합니다.
+      schema: {type: string, format: date}
+    CandidateToDate:
+      name: to
+      in: query
+      description: UTC 기준 종료일이며 해당 날짜를 포함합니다.
+      schema: {type: string, format: date}
   responses:
     ValidationError:
       description: 입력값 오류
@@ -186,6 +243,7 @@ components:
     SimulationRequest:
       type: object
       additionalProperties: false
+      description: 정책이 두 개 이상이고 eventChoice를 생략하면 event.status가 PENDING으로 반환됩니다.
       required: [riverId, policyIds]
       properties:
         riverId:
@@ -198,9 +256,13 @@ components:
           items:
             type: string
             enum: [sewer, treatment, sourceBlock, ecology, sensor, monitoring, walking]
+        eventChoice:
+          type: string
+          enum: [INVESTIGATE, WAIT]
     SubmissionRequest:
       type: object
       additionalProperties: false
+      description: 정책을 두 개 이상 선택한 최종 제출에는 eventChoice가 필요합니다.
       required: [riverId, policyIds, topPriority, district, consentToAggregate]
       properties:
         riverId:
@@ -213,6 +275,9 @@ components:
           items:
             type: string
             enum: [sewer, treatment, sourceBlock, ecology, sensor, monitoring, walking]
+        eventChoice:
+          type: string
+          enum: [INVESTIGATE, WAIT]
         topPriority:
           type: string
           enum: [source_control, treatment, sensor, ecology, walking, citizen_monitoring]
@@ -233,6 +298,55 @@ components:
         label: {type: string}
         maxBod: {type: number, nullable: true}
         level: {type: integer, minimum: 0, maximum: 6}
+    Badge:
+      type: object
+      additionalProperties: false
+      required: [id, name, description]
+      properties:
+        id:
+          type: string
+          enum:
+            - GOOD_ACHIEVED
+            - ONE_MG_PERFECT
+            - ECOLOGY_RECOVERY
+            - CITIZEN_EMPATHY
+            - SMART_MANAGEMENT
+            - BUDGET_SAVER
+        name: {type: string}
+        description: {type: string}
+    Recommendation:
+      type: object
+      additionalProperties: false
+      required:
+        - policyId
+        - policyName
+        - cost
+        - reason
+        - expectedFinalBod
+        - expectedFinalGrade
+        - expectedFinalGradeLabel
+        - expectedResultStatus
+        - expectedMissionSuccess
+        - expectedPerfectClear
+        - expectedRemainingBudget
+      properties:
+        policyId:
+          type: string
+          enum: [sewer, treatment, sourceBlock, ecology]
+        policyName: {type: string}
+        cost: {type: integer, minimum: 0, maximum: 100}
+        reason: {type: string}
+        expectedFinalBod: {type: number, minimum: 0.8}
+        expectedFinalGrade:
+          type: string
+          enum: [Ia, Ib, II, III, IV, V, VI]
+        expectedFinalGradeLabel: {type: string}
+        expectedResultStatus:
+          type: string
+          enum: [TRY_AGAIN, MISSION_COMPLETE, PERFECT_CLEAR]
+        expectedMissionSuccess: {type: boolean}
+        expectedPerfectClear: {type: boolean}
+        expectedRemainingBudget: {type: integer, minimum: 0, maximum: 100}
     SimulationResult:
       type: object
       additionalProperties: true
@@ -243,12 +357,19 @@ components:
         - finalBod
         - initialGrade
         - finalGrade
+        - resultStatus
+        - resultTitle
+        - resultMessage
         - missionSuccess
         - perfectClear
         - policyOrder
         - budgetUsed
         - remainingBudget
         - scores
+        - event
+        - badges
+        - strengths
+        - recommendations
       properties:
         river:
           type: object
@@ -258,10 +379,21 @@ components:
         character: {type: string}
         initialBod: {type: number}
         finalBod: {type: number, minimum: 0.8}
+        bodReduction: {type: number, minimum: 0}
         initialGrade: {$ref: '#/components/schemas/Grade'}
         finalGrade: {$ref: '#/components/schemas/Grade'}
+        gradeImprovement: {type: integer, minimum: 0, maximum: 6}
+        resultStatus:
+          type: string
+          enum: [TRY_AGAIN, MISSION_COMPLETE, PERFECT_CLEAR]
+        resultTitle: {type: string}
+        resultMessage: {type: string}
         missionSuccess: {type: boolean}
         perfectClear: {type: boolean}
+        remainingBodToMission: {type: number, minimum: 0}
+        selectedPolicies:
+          type: array
+          items: {type: object, additionalProperties: true}
         policyOrder:
           type: array
           items: {type: string}
@@ -273,11 +405,44 @@ components:
             ecology: {type: integer, minimum: 0, maximum: 100}
             citizen: {type: integer, minimum: 0, maximum: 100}
             monitoring: {type: integer, minimum: 0, maximum: 100}
+        event: {$ref: '#/components/schemas/EventResult'}
+        selectedPledgeAreas:
+          type: array
+          uniqueItems: true
+          items: {type: string, enum: [CLEAN UP, SMART UP, WALK UP]}
+        pledgeMatchRate: {type: integer, minimum: 0, maximum: 100}
+        badges:
+          type: array
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/Badge'}
+        strengths:
+          type: array
+          minItems: 1
+          items: {type: string}
+        recommendations:
+          type: array
+          maxItems: 3
+          items: {$ref: '#/components/schemas/Recommendation'}
+        isDemoData: {type: boolean, enum: [true]}
+        disclaimer: {type: string}
     GameConfig:
       type: object
       additionalProperties: true
-      required: [version, maxBudget, grades, rivers, policies, priorities, districts, isDemoData]
+      required:
+        - serviceName
+        - version
+        - maxBudget
+        - grades
+        - rivers
+        - policies
+        - events
+        - badgeDefinitions
+        - resultStatuses
+        - priorities
+        - districts
+        - isDemoData
       properties:
+        serviceName: {type: string, example: 강 새로이}
         version: {type: string}
         maxBudget: {type: integer, example: 100}
         grades:
@@ -285,6 +450,29 @@ components:
           items: {$ref: '#/components/schemas/Grade'}
         rivers: {type: array, items: {type: object, additionalProperties: true}}
         policies: {type: array, items: {type: object, additionalProperties: true}}
+        events:
+          type: array
+          minItems: 1
+          items: {type: object, additionalProperties: true}
+        badgeDefinitions:
+          type: array
+          minItems: 6
+          maxItems: 6
+          items: {$ref: '#/components/schemas/Badge'}
+        resultStatuses:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, title, message]
+            properties:
+              id:
+                type: string
+                enum: [TRY_AGAIN, MISSION_COMPLETE, PERFECT_CLEAR]
+              title: {type: string}
+              message: {type: string}
         priorities: {type: array, items: {type: object, additionalProperties: true}}
         districts: {type: array, items: {type: object, additionalProperties: true}}
         isDemoData: {type: boolean, enum: [true]}
@@ -298,6 +486,7 @@ components:
         - averageGradeImprovement
         - riverParticipation
         - policySelection
+        - eventStatistics
         - comments
       properties:
         totalParticipants: {type: integer, minimum: 0}
@@ -306,4 +495,159 @@ components:
         averageGradeImprovement: {type: number}
         riverParticipation: {type: array, items: {type: object, additionalProperties: true}}
         policySelection: {type: array, items: {type: object, additionalProperties: true}}
+        eventStatistics: {$ref: '#/components/schemas/EventStatistics'}
         comments: {type: array, items: {type: object, additionalProperties: true}}
+    EventResult:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - triggerPolicyCount
+        - status
+        - choice
+        - cost
+        - scoreEffects
+        - sensorAssisted
+        - message
+        - temporaryCharacterMood
+      properties:
+        id: {type: string, enum: [DOWNSTREAM_ODOR_SURGE]}
+        name: {type: string}
+        triggerPolicyCount: {type: integer, enum: [2]}
+        status: {type: string, enum: [NOT_TRIGGERED, PENDING, RESOLVED]}
+        choice: {type: string, enum: [INVESTIGATE, WAIT], nullable: true}
+        cost: {type: integer, enum: [0, 5]}
+        scoreEffects:
+          type: object
+          additionalProperties: false
+          required: [ecology, citizen, monitoring]
+          properties:
+            ecology: {type: integer}
+            citizen: {type: integer}
+            monitoring: {type: integer}
+        sensorAssisted: {type: boolean}
+        message: {type: string, nullable: true}
+        temporaryCharacterMood: {type: string, enum: [WORRIED], nullable: true}
+    EventStatistics:
+      type: object
+      additionalProperties: false
+      required:
+        - eventId
+        - eligibleParticipants
+        - respondedParticipants
+        - responseRate
+        - choices
+        - sensorAssistedInvestigations
+      properties:
+        eventId: {type: string, enum: [DOWNSTREAM_ODOR_SURGE]}
+        eligibleParticipants: {type: integer, minimum: 0}
+        respondedParticipants: {type: integer, minimum: 0}
+        responseRate: {type: integer, minimum: 0, maximum: 100}
+        choices:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: {type: object, additionalProperties: true}
+        sensorAssistedInvestigations:
+          type: object
+          additionalProperties: false
+          required: [count, rate]
+          properties:
+            count: {type: integer, minimum: 0}
+            rate: {type: integer, minimum: 0, maximum: 100}
+    CandidateFilters:
+      type: object
+      additionalProperties: false
+      required: [riverId, district, from, to]
+      properties:
+        riverId: {type: string, nullable: true}
+        district: {type: string, nullable: true}
+        from: {type: string, format: date, nullable: true}
+        to: {type: string, format: date, nullable: true}
+    CandidateComment:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - riverId
+        - riverName
+        - district
+        - districtName
+        - topPriority
+        - topPriorityName
+        - comment
+        - createdAt
+      properties:
+        id: {type: string, format: uuid}
+        riverId: {type: string}
+        riverName: {type: string}
+        district: {type: string}
+        districtName: {type: string}
+        topPriority: {type: string}
+        topPriorityName: {type: string}
+        comment: {type: string, maxLength: 200}
+        createdAt: {type: string, format: date-time}
+    CandidateReport:
+      type: object
+      additionalProperties: true
+      required:
+        - title
+        - period
+        - filters
+        - summary
+        - policySelection
+        - topPriorities
+        - pledgeAreaSelection
+        - eventStatistics
+        - perRiver
+        - prioritiesByRiver
+        - prioritiesByDistrict
+        - comments
+        - methodology
+        - isDemoData
+      properties:
+        title: {type: string}
+        period:
+          type: object
+          required: [from, to]
+          properties:
+            from: {type: string, format: date-time, nullable: true}
+            to: {type: string, format: date-time, nullable: true}
+        filters: {$ref: '#/components/schemas/CandidateFilters'}
+        summary: {type: object, additionalProperties: true}
+        policySelection: {type: array, items: {type: object, additionalProperties: true}}
+        topPriorities: {type: array, items: {type: object, additionalProperties: true}}
+        pledgeAreaSelection: {type: array, items: {type: object, additionalProperties: true}}
+        eventStatistics: {$ref: '#/components/schemas/EventStatistics'}
+        perRiver: {type: array, items: {type: object, additionalProperties: true}}
+        prioritiesByRiver: {type: array, items: {type: object, additionalProperties: true}}
+        prioritiesByDistrict: {type: array, items: {type: object, additionalProperties: true}}
+        comments:
+          type: array
+          maxItems: 50
+          items: {$ref: '#/components/schemas/CandidateComment'}
+        methodology: {type: object, additionalProperties: true}
+        isDemoData: {type: boolean, enum: [true]}
+    CandidateCommentsPage:
+      type: object
+      additionalProperties: false
+      required: [items, pagination, sort, filters, isDemoData]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/CandidateComment'}
+        pagination:
+          type: object
+          additionalProperties: false
+          required: [page, pageSize, totalItems, totalPages, hasNext, hasPrevious]
+          properties:
+            page: {type: integer, minimum: 1}
+            pageSize: {type: integer, minimum: 1, maximum: 100}
+            totalItems: {type: integer, minimum: 0}
+            totalPages: {type: integer, minimum: 0}
+            hasNext: {type: boolean}
+            hasPrevious: {type: boolean}
+        sort: {type: string, enum: [latest, oldest]}
+        filters: {$ref: '#/components/schemas/CandidateFilters'}
+        isDemoData: {type: boolean, enum: [true]}

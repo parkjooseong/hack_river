@@ -35,11 +35,15 @@
 2. `New query`를 선택합니다.
 3. 이 프로젝트의 `backend/migrations/001_postgresql_responses.sql` 전체를 복사합니다.
 4. `Run`을 누릅니다.
+5. `backend/migrations/002_candidate_query_indexes.sql`도 새 쿼리에서 실행합니다.
+6. `backend/migrations/003_add_event_result.sql`도 새 쿼리에서 실행합니다.
 
 이 SQL은 다음 작업을 함께 수행합니다.
 
 - `public.responses` 테이블 생성
 - 필요한 인덱스 생성
+- 후보자 리포트의 하천·지역·날짜 필터와 의견 페이지 조회용 인덱스 생성
+- 돌발상황 선택·비용·점수 효과 저장 컬럼 생성
 - Row Level Security 활성화
 - 브라우저용 `anon`, `authenticated` 역할의 직접 접근 차단
 - 서버용 `service_role`에 `SELECT`, `INSERT` 권한 부여
@@ -83,7 +87,7 @@ python3 -m river_api
 정상이라면 다음 메시지가 표시됩니다.
 
 ```text
-1mg Challenge API listening on http://127.0.0.1:8000
+강 새로이 API listening on http://127.0.0.1:8000
 ```
 
 테이블이 없거나 URL·키가 틀리면 서버가 시작되지 않고 Secret key를 포함하지 않는 설정 오류만 표시합니다.

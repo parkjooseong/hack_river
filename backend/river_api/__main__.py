@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 from .application import Application
+from .branding import SERVICE_NAME
 from .config import ConfigurationError, load_env_file, positive_int_env, require_env
 from .http_server import run_server
 from .repository import (
@@ -21,7 +22,7 @@ BACKEND_ROOT = Path(__file__).resolve().parent.parent
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="1mg Challenge backend API")
+    parser = argparse.ArgumentParser(description=f"{SERVICE_NAME} backend API")
     parser.add_argument(
         "--storage",
         choices=("sqlite", "supabase"),

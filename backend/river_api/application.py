@@ -4,6 +4,7 @@ import logging
 from typing import Any
 from uuid import uuid4
 
+from .branding import SERVICE_ID, SERVICE_NAME
 from .domain import DomainValidationError
 from .repository import RepositoryUnavailableError
 from .service import RiverService
@@ -18,6 +19,7 @@ ROUTE_METHODS: dict[str, frozenset[str]] = {
     "/api/responses": frozenset({"POST"}),
     "/api/stats": frozenset({"GET"}),
     "/api/candidate/report": frozenset({"GET"}),
+    "/api/candidate/comments": frozenset({"GET"}),
 }
 
 
@@ -55,6 +57,7 @@ class Application:
         path: str,
         payload: Any | None = None,
         request_id: str | None = None,
+        query: dict[str, Any] | None = None,
     ) -> tuple[int, dict[str, Any]]:
         request_id = request_id or new_request_id()
         method = method.upper()
@@ -74,7 +77,11 @@ class Application:
 
         try:
             if method == "GET" and path == "/health":
-                return 200, {"status": "ok", "service": "1mg-challenge-api"}
+                return 200, {
+                    "status": "ok",
+                    "service": SERVICE_ID,
+                    "name": SERVICE_NAME,
+                }
             if method == "GET" and path == "/api/game/config":
                 return 200, self.service.config()
             if method == "POST" and path == "/api/simulations":
@@ -84,7 +91,9 @@ class Application:
             if method == "GET" and path == "/api/stats":
                 return 200, self.service.statistics()
             if method == "GET" and path == "/api/candidate/report":
-                return 200, self.service.candidate_report()
+                return 200, self.service.candidate_report(query)
+            if method == "GET" and path == "/api/candidate/comments":
+                return 200, self.service.candidate_comments(query)
             raise AssertionError("Registered route has no handler")
         except DomainValidationError as error:
             return 400, error_payload(

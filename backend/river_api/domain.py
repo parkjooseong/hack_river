@@ -4,10 +4,36 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
+from .branding import SERVICE_NAME
+
 
 MAX_BUDGET = 100
 MIN_BOD = Decimal("0.8")
 BASE_SCORE = 30
+BADGE_SCORE_THRESHOLD = 70
+FRUGAL_REMAINING_BUDGET = 20
+MAX_RECOMMENDATIONS = 3
+EVENT_ID = "DOWNSTREAM_ODOR_SURGE"
+EVENT_TRIGGER_POLICY_COUNT = 2
+EVENT_CHOICES = {
+    "INVESTIGATE": "추가 수질조사",
+    "WAIT": "일단 지켜보기",
+}
+
+RESULT_PRESENTATIONS = {
+    "TRY_AGAIN": {
+        "title": "TRY AGAIN",
+        "message": "수질은 개선되었지만 아직 좋음 등급에는 도달하지 못했습니다.",
+    },
+    "MISSION_COMPLETE": {
+        "title": "MISSION COMPLETE",
+        "message": "하천이 좋음(Ib) 등급으로 회복되었습니다!",
+    },
+    "PERFECT_CLEAR": {
+        "title": "PERFECT CLEAR",
+        "message": "BOD 1mg/L 이하, 매우좋음(Ia) 등급을 달성했습니다!",
+    },
+}
 
 SIMULATION_DISCLAIMER = (
     "본 게임의 BOD 변화는 정책 이해를 돕기 위한 체험용 시뮬레이션이며 "
@@ -89,6 +115,20 @@ class Policy:
         }
 
 
+@dataclass(frozen=True)
+class Badge:
+    id: str
+    name: str
+    description: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+        }
+
+
 POLICIES = (
     Policy("sewer", "노후 하수관 정비", 25, 8, 5, 0, "CLEAN UP", True),
     Policy("treatment", "하천 정화시설 확대", 30, 10, 0, 0, "CLEAN UP", True),
@@ -99,6 +139,30 @@ POLICIES = (
     Policy("walking", "블루 워킹 로드 조성", 15, 3, 30, 0, "WALK UP", False),
 )
 POLICY_BY_ID = {policy.id: policy for policy in POLICIES}
+
+POLICY_STRENGTHS = {
+    "sewer": "노후 하수관을 정비해 생활하수 유입을 줄였습니다.",
+    "treatment": "정화시설을 확대해 하천의 오염물질을 직접 줄였습니다.",
+    "sourceBlock": "오염원 유입을 차단해 BOD를 빠르게 낮췄습니다.",
+    "ecology": "수질을 개선하고 생태 회복 기반을 함께 마련했습니다.",
+    "sensor": "수질 변화를 빠르게 발견할 수 있는 관리 능력을 높였습니다.",
+    "monitoring": "주민 참여를 늘려 시민 공감과 관리 역량을 함께 높였습니다.",
+    "walking": "수변 이용 환경을 개선해 시민 만족도를 높였습니다.",
+}
+
+BADGES = (
+    Badge("GOOD_ACHIEVED", "좋음 달성", "최종 BOD 2.0mg/L 이하를 달성했습니다."),
+    Badge("ONE_MG_PERFECT", "1mg 퍼펙트", "최종 BOD 1.0mg/L 이하를 달성했습니다."),
+    Badge("ECOLOGY_RECOVERY", "생태 회복", "생태 점수 70점 이상을 달성했습니다."),
+    Badge("CITIZEN_EMPATHY", "시민 공감", "시민 만족도 70점 이상을 달성했습니다."),
+    Badge("SMART_MANAGEMENT", "스마트 관리", "관리 능력 70점 이상을 달성했습니다."),
+    Badge(
+        "BUDGET_SAVER",
+        "알뜰 정책",
+        "미션에 성공하고 예산을 20억원 이상 남겼습니다.",
+    ),
+)
+BADGE_BY_ID = {badge.id: badge for badge in BADGES}
 
 
 @dataclass(frozen=True)
@@ -230,27 +294,17 @@ def _validate_policy_ids(policy_ids: Any) -> list[str]:
     return policy_ids
 
 
-def simulate(river_id: str, policy_ids: Any) -> dict[str, Any]:
-    if not isinstance(river_id, str):
-        raise DomainValidationError(
-            "하천 ID는 문자열이어야 합니다.",
-            [{"field": "riverId", "reason": "string_required"}],
-        )
-    river = RIVER_BY_ID.get(river_id)
-    if river is None:
-        raise DomainValidationError(
-            "알 수 없는 하천입니다.",
-            [{"field": "riverId", "reason": "unknown_river"}],
-        )
-    selected_ids = _validate_policy_ids(policy_ids)
+def _result_status(final_bod: Decimal) -> str:
+    if final_bod <= Decimal("1.0"):
+        return "PERFECT_CLEAR"
+    if final_bod <= Decimal("2.0"):
+        return "MISSION_COMPLETE"
+    return "TRY_AGAIN"
+
+
+def _calculate_simulation(river: River, selected_ids: list[str]) -> dict[str, Any]:
     selected = [POLICY_BY_ID[policy_id] for policy_id in selected_ids]
     budget_used = sum(policy.cost for policy in selected)
-    if budget_used > MAX_BUDGET:
-        raise DomainValidationError(
-            f"예산 {MAX_BUDGET}억원을 초과했습니다.",
-            [{"field": "policyIds", "reason": "budget_exceeded"}],
-        )
-
     reduction = sum(
         (river.policy_effects.get(policy.id, Decimal("0")) for policy in selected),
         Decimal("0"),
@@ -259,6 +313,7 @@ def simulate(river_id: str, policy_ids: Any) -> dict[str, Any]:
     initial_grade = classify_bod(river.initial_bod)
     final_grade = classify_bod(final_bod)
     areas = list(dict.fromkeys(policy.pledge_area for policy in selected))
+    result_status = _result_status(final_bod)
 
     return {
         "river": {"id": river.id, "name": river.name},
@@ -269,8 +324,9 @@ def simulate(river_id: str, policy_ids: Any) -> dict[str, Any]:
         "initialGrade": initial_grade.to_dict(),
         "finalGrade": final_grade.to_dict(),
         "gradeImprovement": final_grade.level - initial_grade.level,
-        "missionSuccess": final_bod <= Decimal("2.0"),
-        "perfectClear": final_bod <= Decimal("1.0"),
+        "resultStatus": result_status,
+        "missionSuccess": result_status != "TRY_AGAIN",
+        "perfectClear": result_status == "PERFECT_CLEAR",
         "remainingBodToMission": float(max(Decimal("0"), final_bod - Decimal("2.0"))),
         "selectedPolicies": [policy.to_dict() for policy in selected],
         "policyOrder": selected_ids,
@@ -288,9 +344,236 @@ def simulate(river_id: str, policy_ids: Any) -> dict[str, Any]:
     }
 
 
+def _validate_event_choice(event_choice: Any, selected_ids: list[str]) -> str | None:
+    if event_choice is not None and not isinstance(event_choice, str):
+        raise DomainValidationError(
+            "돌발상황 선택지는 문자열이어야 합니다.",
+            [{"field": "eventChoice", "reason": "string_required"}],
+        )
+    if len(selected_ids) < EVENT_TRIGGER_POLICY_COUNT:
+        if event_choice is not None:
+            raise DomainValidationError(
+                "정책을 두 개 이상 선택해야 돌발상황에 대응할 수 있습니다.",
+                [{"field": "eventChoice", "reason": "event_not_triggered"}],
+            )
+        return None
+    if event_choice is not None and event_choice not in EVENT_CHOICES:
+        raise DomainValidationError(
+            "알 수 없는 돌발상황 선택지입니다.",
+            [{"field": "eventChoice", "reason": "unknown_event_choice"}],
+        )
+    return event_choice
+
+
+def _event_result(selected_ids: list[str], event_choice: str | None) -> dict[str, Any]:
+    event = {
+        "id": EVENT_ID,
+        "name": "하류 악취 신고 급증",
+        "triggerPolicyCount": EVENT_TRIGGER_POLICY_COUNT,
+        "choice": event_choice,
+        "cost": 0,
+        "scoreEffects": {"ecology": 0, "citizen": 0, "monitoring": 0},
+        "sensorAssisted": False,
+        "message": None,
+        "temporaryCharacterMood": None,
+    }
+    if len(selected_ids) < EVENT_TRIGGER_POLICY_COUNT:
+        event["status"] = "NOT_TRIGGERED"
+        return event
+    if event_choice is None:
+        event["status"] = "PENDING"
+        event["message"] = (
+            "최근 하류 지역에서 악취 신고가 빠르게 늘고 있습니다. "
+            "대응 방법을 선택해 주세요."
+        )
+        return event
+
+    event["status"] = "RESOLVED"
+    if event_choice == "INVESTIGATE":
+        sensor_assisted = "sensor" in selected_ids
+        event.update(
+            {
+                "cost": 0 if sensor_assisted else 5,
+                "scoreEffects": {
+                    "ecology": 0,
+                    "citizen": 5,
+                    "monitoring": 15 if sensor_assisted else 10,
+                },
+                "sensorAssisted": sensor_assisted,
+                "message": (
+                    "설치한 센서로 이상 시간대를 빠르게 발견했습니다."
+                    if sensor_assisted
+                    else "추가 수질조사로 악취 원인을 확인하고 시민에게 대응 상황을 알렸습니다."
+                ),
+            }
+        )
+    else:
+        event.update(
+            {
+                "scoreEffects": {"ecology": 0, "citizen": -10, "monitoring": 0},
+                "message": "상황을 지켜보는 동안 시민의 불안이 커졌습니다.",
+                "temporaryCharacterMood": "WORRIED",
+            }
+        )
+    return event
+
+
+def _apply_event(result: dict[str, Any], event: dict[str, Any]) -> None:
+    event_cost = event["cost"]
+    final_budget = result["budgetUsed"] + event_cost
+    if final_budget > MAX_BUDGET:
+        raise DomainValidationError(
+            f"돌발상황 대응 비용을 포함해 예산 {MAX_BUDGET}억원을 초과했습니다.",
+            [{"field": "eventChoice", "reason": "budget_exceeded"}],
+        )
+    for score, effect in event["scoreEffects"].items():
+        result["scores"][score] = max(0, min(100, result["scores"][score] + effect))
+    result["budgetUsed"] = final_budget
+    result["remainingBudget"] = MAX_BUDGET - final_budget
+    result["event"] = event
+
+
+def _award_badges(result: dict[str, Any]) -> list[dict[str, str]]:
+    scores = result["scores"]
+    awarded_ids = []
+    if result["missionSuccess"]:
+        awarded_ids.append("GOOD_ACHIEVED")
+    if result["perfectClear"]:
+        awarded_ids.append("ONE_MG_PERFECT")
+    if scores["ecology"] >= BADGE_SCORE_THRESHOLD:
+        awarded_ids.append("ECOLOGY_RECOVERY")
+    if scores["citizen"] >= BADGE_SCORE_THRESHOLD:
+        awarded_ids.append("CITIZEN_EMPATHY")
+    if scores["monitoring"] >= BADGE_SCORE_THRESHOLD:
+        awarded_ids.append("SMART_MANAGEMENT")
+    if result["missionSuccess"] and result["remainingBudget"] >= FRUGAL_REMAINING_BUDGET:
+        awarded_ids.append("BUDGET_SAVER")
+    return [BADGE_BY_ID[badge_id].to_dict() for badge_id in awarded_ids]
+
+
+def _result_message(result: dict[str, Any]) -> str:
+    if result["resultStatus"] != "TRY_AGAIN":
+        return RESULT_PRESENTATIONS[result["resultStatus"]]["message"]
+    if result["bodReduction"] == 0:
+        return "시민 만족도나 관리 능력은 높아졌지만, 수질은 아직 개선되지 않았습니다."
+    if result["finalGrade"]["symbol"] == "II":
+        return "목표까지 한 단계 남았습니다. 오염원 차단 정책을 하나 더 검토해 보세요."
+    return RESULT_PRESENTATIONS["TRY_AGAIN"]["message"]
+
+
+def _recommendation_reason(
+    policy: Policy, current: dict[str, Any], expected: dict[str, Any]
+) -> str:
+    if expected["perfectClear"]:
+        return f"{policy.name} 추가 시 매우좋음(Ia) 등급까지 회복할 수 있습니다."
+    if expected["missionSuccess"]:
+        return f"{policy.name} 추가 시 좋음(Ib) 등급에 도달할 수 있습니다."
+
+    added_reduction = round(current["finalBod"] - expected["finalBod"], 1)
+    if expected["finalGrade"]["level"] > current["finalGrade"]["level"]:
+        return (
+            f"{policy.name} 추가 시 BOD를 {added_reduction:.1f}mg/L 낮춰 "
+            f"{expected['finalGrade']['label']} 등급까지 개선할 수 있습니다."
+        )
+    return (
+        f"{policy.name} 추가 시 BOD를 {added_reduction:.1f}mg/L 낮춰 "
+        "좋음 등급 목표에 가까워집니다."
+    )
+
+
+def _build_recommendations(
+    river: River,
+    selected_ids: list[str],
+    current: dict[str, Any],
+    event_choice: str | None,
+) -> list[dict[str, Any]]:
+    if current["missionSuccess"]:
+        return []
+
+    selected_set = set(selected_ids)
+    status_rank = {"PERFECT_CLEAR": 0, "MISSION_COMPLETE": 1, "TRY_AGAIN": 2}
+    ranked: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+    for catalog_index, policy in enumerate(POLICIES):
+        if (
+            policy.id in selected_set
+            or not policy.directly_reduces_bod
+            or policy.cost > current["remainingBudget"]
+        ):
+            continue
+
+        expected_ids = [*selected_ids, policy.id]
+        expected = _calculate_simulation(river, expected_ids)
+        _apply_event(expected, _event_result(expected_ids, event_choice))
+        recommendation = {
+            "policyId": policy.id,
+            "policyName": policy.name,
+            "cost": policy.cost,
+            "reason": _recommendation_reason(policy, current, expected),
+            "expectedFinalBod": expected["finalBod"],
+            "expectedFinalGrade": expected["finalGrade"]["symbol"],
+            "expectedFinalGradeLabel": expected["finalGrade"]["label"],
+            "expectedResultStatus": expected["resultStatus"],
+            "expectedMissionSuccess": expected["missionSuccess"],
+            "expectedPerfectClear": expected["perfectClear"],
+            "expectedRemainingBudget": expected["remainingBudget"],
+        }
+        rank = (
+            status_rank[expected["resultStatus"]],
+            -expected["finalGrade"]["level"],
+            expected["finalBod"],
+            policy.cost,
+            catalog_index,
+        )
+        ranked.append((rank, recommendation))
+
+    ranked.sort(key=lambda item: item[0])
+    return [item[1] for item in ranked[:MAX_RECOMMENDATIONS]]
+
+
+def simulate(
+    river_id: str, policy_ids: Any, event_choice: Any = None
+) -> dict[str, Any]:
+    if not isinstance(river_id, str):
+        raise DomainValidationError(
+            "하천 ID는 문자열이어야 합니다.",
+            [{"field": "riverId", "reason": "string_required"}],
+        )
+    river = RIVER_BY_ID.get(river_id)
+    if river is None:
+        raise DomainValidationError(
+            "알 수 없는 하천입니다.",
+            [{"field": "riverId", "reason": "unknown_river"}],
+        )
+    selected_ids = _validate_policy_ids(policy_ids)
+    validated_event_choice = _validate_event_choice(event_choice, selected_ids)
+    budget_used = sum(POLICY_BY_ID[policy_id].cost for policy_id in selected_ids)
+    if budget_used > MAX_BUDGET:
+        raise DomainValidationError(
+            f"예산 {MAX_BUDGET}억원을 초과했습니다.",
+            [{"field": "policyIds", "reason": "budget_exceeded"}],
+        )
+
+    result = _calculate_simulation(river, selected_ids)
+    _apply_event(result, _event_result(selected_ids, validated_event_choice))
+    presentation = RESULT_PRESENTATIONS[result["resultStatus"]]
+    result.update(
+        {
+            "resultTitle": presentation["title"],
+            "resultMessage": _result_message(result),
+            "badges": _award_badges(result),
+            "strengths": [POLICY_STRENGTHS[policy_id] for policy_id in selected_ids],
+            "recommendations": _build_recommendations(
+                river, selected_ids, result, validated_event_choice
+            ),
+        }
+    )
+    return result
+
+
 def game_config() -> dict[str, Any]:
     return {
-        "version": "2026-08-demo-v1",
+        "serviceName": SERVICE_NAME,
+        "version": "2026-08-demo-v3",
         "maxBudget": MAX_BUDGET,
         "minimumBod": float(MIN_BOD),
         "baseScore": BASE_SCORE,
@@ -299,6 +582,54 @@ def game_config() -> dict[str, Any]:
         "grades": [grade.to_dict() for grade in GRADES],
         "rivers": [river.to_dict() for river in RIVERS],
         "policies": [policy.to_dict() for policy in POLICIES],
+        "events": [
+            {
+                "id": EVENT_ID,
+                "name": "하류 악취 신고 급증",
+                "description": (
+                    "최근 하류 지역에서 악취 신고가 빠르게 늘고 있습니다. "
+                    "어떻게 대응하시겠습니까?"
+                ),
+                "triggerPolicyCount": EVENT_TRIGGER_POLICY_COUNT,
+                "choices": [
+                    {
+                        "id": "INVESTIGATE",
+                        "name": EVENT_CHOICES["INVESTIGATE"],
+                        "baseCost": 5,
+                        "baseScoreEffects": {
+                            "ecology": 0,
+                            "citizen": 5,
+                            "monitoring": 10,
+                        },
+                        "sensorVariant": {
+                            "requiredPolicyId": "sensor",
+                            "cost": 0,
+                            "scoreEffects": {
+                                "ecology": 0,
+                                "citizen": 5,
+                                "monitoring": 15,
+                            },
+                        },
+                    },
+                    {
+                        "id": "WAIT",
+                        "name": EVENT_CHOICES["WAIT"],
+                        "baseCost": 0,
+                        "baseScoreEffects": {
+                            "ecology": 0,
+                            "citizen": -10,
+                            "monitoring": 0,
+                        },
+                        "temporaryCharacterMood": "WORRIED",
+                    },
+                ],
+            }
+        ],
+        "badgeDefinitions": [badge.to_dict() for badge in BADGES],
+        "resultStatuses": [
+            {"id": status, **presentation}
+            for status, presentation in RESULT_PRESENTATIONS.items()
+        ],
         "priorities": [{"id": key, "name": value} for key, value in PRIORITIES],
         "districts": [{"id": key, "name": value} for key, value in DISTRICTS],
         "commentRules": {

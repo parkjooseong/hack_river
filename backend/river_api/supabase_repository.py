@@ -7,7 +7,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from .repository import RepositoryUnavailableError
+from .branding import BACKEND_USER_AGENT
+from .repository import RepositoryUnavailableError, ResponseFilters
 
 
 TABLE_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -45,7 +46,7 @@ class SupabaseResponseRepository:
             "apikey": self._secret_key,
             "Accept": "application/json",
             "Content-Type": "application/json; charset=utf-8",
-            "User-Agent": "1mg-challenge-backend/0.1",
+            "User-Agent": BACKEND_USER_AGENT,
         }
         # Legacy service_role JWTs need Bearer auth. New sb_secret keys must not be
         # sent as Bearer tokens, so they use only the apikey header.
@@ -56,13 +57,13 @@ class SupabaseResponseRepository:
     def _request(
         self,
         method: str,
-        query: dict[str, str | int] | None = None,
+        query: dict[str, str | int | list[str]] | None = None,
         payload: dict[str, Any] | None = None,
         extra_headers: dict[str, str] | None = None,
     ) -> Any:
         url = self.base_url
         if query:
-            url = f"{url}?{urlencode(query)}"
+            url = f"{url}?{urlencode(query, doseq=True)}"
         body = None
         if payload is not None:
             body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode(
@@ -108,25 +109,84 @@ class SupabaseResponseRepository:
         return response
 
     def list_all(self) -> list[dict[str, Any]]:
+        return self.list_filtered(ResponseFilters())
+
+    @staticmethod
+    def _filter_query(
+        filters: ResponseFilters, comments_only: bool
+    ) -> dict[str, str | list[str]]:
+        query: dict[str, str | list[str]] = {}
+        if filters.river_id is not None:
+            query["river_id"] = f"eq.{filters.river_id}"
+        if filters.district is not None:
+            query["district"] = f"eq.{filters.district}"
+        created_filters = []
+        if filters.created_from is not None:
+            created_filters.append(f"gte.{filters.created_from}")
+        if filters.created_before is not None:
+            created_filters.append(f"lt.{filters.created_before}")
+        if created_filters:
+            query["created_at"] = created_filters
+        if comments_only:
+            query["comment"] = "neq."
+        return query
+
+    def list_filtered(
+        self,
+        filters: ResponseFilters,
+        *,
+        offset: int = 0,
+        limit: int | None = None,
+        descending: bool = True,
+        comments_only: bool = False,
+    ) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
-        offset = 0
+        current_offset = offset
+        direction = "desc" if descending else "asc"
+        filter_query = self._filter_query(filters, comments_only)
         while True:
+            page_size = limit if limit is not None else DEFAULT_PAGE_SIZE
             page = self._request(
                 "GET",
                 {
                     "select": "*",
-                    "order": "created_at.desc,id.desc",
-                    "offset": offset,
-                    "limit": DEFAULT_PAGE_SIZE,
+                    "order": f"created_at.{direction},id.{direction}",
+                    "offset": current_offset,
+                    "limit": page_size,
+                    **filter_query,
                 },
             )
             if not isinstance(page, list):
                 raise RepositoryUnavailableError("Supabase 조회 결과를 확인할 수 없습니다.")
             rows.extend(self._from_database_row(row) for row in page)
-            if len(page) < DEFAULT_PAGE_SIZE:
+            if limit is not None or len(page) < DEFAULT_PAGE_SIZE:
                 break
-            offset += DEFAULT_PAGE_SIZE
+            current_offset += DEFAULT_PAGE_SIZE
         return rows
+
+    def count_filtered(
+        self, filters: ResponseFilters, *, comments_only: bool = False
+    ) -> int:
+        total = 0
+        offset = 0
+        filter_query = self._filter_query(filters, comments_only)
+        while True:
+            page = self._request(
+                "GET",
+                {
+                    "select": "id",
+                    "order": "created_at.desc,id.desc",
+                    "offset": offset,
+                    "limit": DEFAULT_PAGE_SIZE,
+                    **filter_query,
+                },
+            )
+            if not isinstance(page, list):
+                raise RepositoryUnavailableError("Supabase 응답 수를 확인할 수 없습니다.")
+            total += len(page)
+            if len(page) < DEFAULT_PAGE_SIZE:
+                return total
+            offset += DEFAULT_PAGE_SIZE
 
     @staticmethod
     def _to_database_row(response: dict[str, Any]) -> dict[str, Any]:
@@ -147,6 +207,13 @@ class SupabaseResponseRepository:
             "ecology_score": response["scores"]["ecology"],
             "citizen_score": response["scores"]["citizen"],
             "monitoring_score": response["scores"]["monitoring"],
+            "event_id": response.get("eventId"),
+            "event_choice": response.get("eventChoice"),
+            "event_cost": response.get("eventCost", 0),
+            "event_score_effects": response.get(
+                "eventScoreEffects",
+                {"ecology": 0, "citizen": 0, "monitoring": 0},
+            ),
             "pledge_match_rate": response["pledgeMatchRate"],
             "district": response["district"],
             "comment": response["comment"],
@@ -167,6 +234,22 @@ class SupabaseResponseRepository:
         if not isinstance(policy_order, list):
             raise RepositoryUnavailableError("Supabase 정책 데이터 형식이 올바르지 않습니다.")
 
+        event_score_effects = row.get(
+            "event_score_effects",
+            {"ecology": 0, "citizen": 0, "monitoring": 0},
+        )
+        if isinstance(event_score_effects, str):
+            try:
+                event_score_effects = json.loads(event_score_effects)
+            except json.JSONDecodeError:
+                raise RepositoryUnavailableError(
+                    "Supabase 돌발상황 데이터 형식이 올바르지 않습니다."
+                ) from None
+        if not isinstance(event_score_effects, dict):
+            raise RepositoryUnavailableError(
+                "Supabase 돌발상황 데이터 형식이 올바르지 않습니다."
+            )
+
         return {
             "id": str(row["id"]),
             "riverId": row["river_id"],
@@ -186,6 +269,10 @@ class SupabaseResponseRepository:
                 "citizen": int(row["citizen_score"]),
                 "monitoring": int(row["monitoring_score"]),
             },
+            "eventId": row.get("event_id"),
+            "eventChoice": row.get("event_choice"),
+            "eventCost": int(row.get("event_cost", 0)),
+            "eventScoreEffects": event_score_effects,
             "pledgeMatchRate": int(row["pledge_match_rate"]),
             "district": row["district"],
             "comment": row["comment"],

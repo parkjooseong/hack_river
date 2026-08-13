@@ -1,3 +1,3 @@
-"""1mg Challenge backend package."""
+"""강 새로이 backend package."""
 
 __version__ = "0.1.0"

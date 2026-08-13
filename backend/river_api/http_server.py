@@ -4,9 +4,10 @@ import json
 import logging
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from .application import Application, error_payload, new_request_id
+from .branding import SERVICE_NAME
 
 
 MAX_BODY_BYTES = 16 * 1024
@@ -17,6 +18,10 @@ def _is_json_content_type(value: str | None) -> bool:
     if not value:
         return False
     return value.split(";", 1)[0].strip().lower() == "application/json"
+
+
+def _query_parameters(path: str) -> dict[str, list[str]]:
+    return parse_qs(urlsplit(path).query, keep_blank_values=True)
 
 
 def create_handler(application: Application, allowed_origins: set[str]):
@@ -132,7 +137,10 @@ def create_handler(application: Application, allowed_origins: set[str]):
             request_id = new_request_id()
             path = urlsplit(self.path).path
             status, payload = application.dispatch(
-                self.command, path, request_id=request_id
+                self.command,
+                path,
+                request_id=request_id,
+                query=_query_parameters(self.path),
             )
             headers = None
             if status == 405:
@@ -190,7 +198,7 @@ def run_server(
     allowed_origins: set[str],
 ) -> None:
     server = ThreadingHTTPServer((host, port), create_handler(application, allowed_origins))
-    print(f"1mg Challenge API listening on http://{host}:{port}")
+    print(f"{SERVICE_NAME} API listening on http://{host}:{port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

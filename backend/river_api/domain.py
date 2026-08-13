@@ -573,7 +573,7 @@ def simulate(
 def game_config() -> dict[str, Any]:
     return {
         "serviceName": SERVICE_NAME,
-        "version": "2026-08-demo-v3",
+        "version": "2026-08-demo-v4",
         "maxBudget": MAX_BUDGET,
         "minimumBod": float(MIN_BOD),
         "baseScore": BASE_SCORE,

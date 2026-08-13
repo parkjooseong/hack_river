@@ -13,6 +13,11 @@ python3 -m river_api
 기본 주소는 `http://127.0.0.1:8000`, 데이터 파일은 `data/river_api.db`입니다.
 
 기본 설정은 `backend/.env`에서 읽습니다. Supabase 계정 연결은 [SUPABASE_SETUP.md](SUPABASE_SETUP.md)를 따르세요.
+운영 배포 전에는 [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)를 확인하고 다음 명령을 실행하세요.
+
+```bash
+python3 scripts/predeploy_check.py --check-database
+```
 
 ## API
 
@@ -101,6 +106,21 @@ GET /api/candidate/comments?riverId=dongcheon&page=1&pageSize=20&sort=latest
 - 빈 조회 결과도 `200`과 빈 집계를 반환합니다.
 - 의견 응답에는 전체 의견 수, 전체 페이지 수, 이전·다음 페이지 여부가 포함됩니다.
 
+## 시민 의견 키워드 분석
+
+`/api/stats`와 후보자 리포트의 `commentKeywordAnalysis`는 내용이 있는 시민 의견을 다음 여섯 범주로 집계합니다.
+
+- 악취
+- 오염원·생활하수
+- 데이터 공개
+- 생태 복원
+- 산책로·편의시설
+- 기타
+
+분류는 외부 AI 없이 한국어 키워드 사전으로 실행됩니다. 한 의견에서 여러 범주가 감지되면 일치한 키워드가 가장 많은 범주, 의견에 먼저 등장한 범주, 고정 범주 순서의 순으로 대표 범주 하나를 결정합니다. 따라서 범주별 `count`의 합은 항상 `totalComments`와 같습니다. 키워드가 없는 의견은 삭제하거나 변경하지 않고 `OTHER`로 집계하며, 원문 조회 기능은 그대로 유지됩니다.
+
+`topCategories`는 집계 수가 있는 상위 세 범주이고, 후보자 리포트에 하천·지역·기간 필터가 적용되면 키워드 분석에도 같은 필터가 적용됩니다.
+
 ## 개인정보와 오류 처리
 
 - 한 줄 의견은 Unicode를 정규화하고 제어문자와 불필요한 공백을 정리합니다.
@@ -125,6 +145,8 @@ GET /api/candidate/comments?riverId=dongcheon&page=1&pageSize=20&sort=latest
 STORAGE_BACKEND=supabase
 SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_REPLACE_ME
+ALLOWED_ORIGINS=https://YOUR_FRONTEND_DOMAIN
+BACKUP_POLICY_CONFIRMED=true
 ```
 
 Secret key는 서버에서만 사용하며 프런트엔드나 GitHub에 포함하지 않습니다. Supabase 장애가 발생하면 저장·통계 API는 내부 접속 정보를 노출하지 않고 `503 DATABASE_UNAVAILABLE`을 반환합니다.

@@ -233,7 +233,7 @@ class SimulationTests(unittest.TestCase):
 
     def test_game_config_exposes_result_and_badge_definitions(self) -> None:
         config = game_config()
-        self.assertEqual(config["version"], "2026-08-demo-v3")
+        self.assertEqual(config["version"], "2026-08-demo-v4")
         self.assertEqual(len(config["badgeDefinitions"]), 6)
         self.assertEqual(
             {item["id"] for item in config["resultStatuses"]},

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
+import unicodedata
 from zoneinfo import ZoneInfo
 
 from .domain import (
@@ -20,12 +21,156 @@ from .domain import (
 )
 
 
+COMMENT_KEYWORD_CATEGORIES = (
+    {
+        "id": "ODOR",
+        "name": "악취",
+        "keywords": ("악취", "냄새", "썩은내", "하수 냄새"),
+    },
+    {
+        "id": "POLLUTION_SOURCE",
+        "name": "오염원·생활하수",
+        "keywords": (
+            "오염원",
+            "생활하수",
+            "수질오염",
+            "하수관",
+            "정화시설",
+            "폐수",
+            "오수",
+            "하수",
+            "배출",
+            "유입",
+        ),
+    },
+    {
+        "id": "DATA_DISCLOSURE",
+        "name": "데이터 공개",
+        "keywords": (
+            "데이터",
+            "정보 공개",
+            "결과 공개",
+            "수질정보",
+            "수질 정보",
+            "측정값",
+            "실시간",
+            "투명",
+            "알림",
+        ),
+    },
+    {
+        "id": "ECOLOGY_RESTORATION",
+        "name": "생태 복원",
+        "keywords": (
+            "생태",
+            "복원",
+            "물고기",
+            "어류",
+            "수생태",
+            "서식지",
+            "자연형",
+            "녹지",
+        ),
+    },
+    {
+        "id": "WALKING_AMENITIES",
+        "name": "산책로·편의시설",
+        "keywords": (
+            "산책로",
+            "워킹로드",
+            "워킹 로드",
+            "편의시설",
+            "편의 시설",
+            "보행",
+            "조명",
+            "벤치",
+            "자전거",
+            "데크",
+        ),
+    },
+    {"id": "OTHER", "name": "기타", "keywords": ()},
+)
+COMMENT_KEYWORD_CATEGORY_BY_ID = {
+    category["id"]: category for category in COMMENT_KEYWORD_CATEGORIES
+}
+
+
 def _rate(count: int, total: int) -> int:
     return round(count / total * 100) if total else 0
 
 
 def _counts(items: list[str]) -> Counter[str]:
     return Counter(items)
+
+
+def classify_comment(comment: Any) -> dict[str, Any]:
+    """Return one deterministic primary category without changing the original text."""
+
+    normalized = (
+        unicodedata.normalize("NFKC", comment).casefold()
+        if isinstance(comment, str)
+        else ""
+    )
+    candidates: list[tuple[int, int, int, dict[str, Any], list[str]]] = []
+    for priority, category in enumerate(COMMENT_KEYWORD_CATEGORIES[:-1]):
+        matched = [
+            keyword for keyword in category["keywords"] if keyword in normalized
+        ]
+        if matched:
+            first_position = min(normalized.find(keyword) for keyword in matched)
+            candidates.append(
+                (-len(matched), first_position, priority, category, matched)
+            )
+
+    if not candidates:
+        other = COMMENT_KEYWORD_CATEGORY_BY_ID["OTHER"]
+        return {"id": other["id"], "name": other["name"], "matchedKeywords": []}
+
+    _, _, _, category, matched = min(candidates)
+    return {
+        "id": category["id"],
+        "name": category["name"],
+        "matchedKeywords": matched,
+    }
+
+
+def build_comment_keyword_analysis(
+    records: list[dict[str, Any]],
+) -> dict[str, Any]:
+    comments = [
+        record["comment"]
+        for record in records
+        if isinstance(record.get("comment"), str) and record["comment"].strip()
+    ]
+    category_counts = Counter(classify_comment(comment)["id"] for comment in comments)
+    total_comments = len(comments)
+    categories = [
+        {
+            "id": category["id"],
+            "name": category["name"],
+            "count": category_counts[category["id"]],
+            "rate": _rate(category_counts[category["id"]], total_comments),
+        }
+        for category in COMMENT_KEYWORD_CATEGORIES
+    ]
+    top_categories = sorted(
+        (category for category in categories if category["count"] > 0),
+        key=lambda category: (
+            -category["count"],
+            next(
+                index
+                for index, definition in enumerate(COMMENT_KEYWORD_CATEGORIES)
+                if definition["id"] == category["id"]
+            ),
+        ),
+    )[:3]
+    return {
+        "totalComments": total_comments,
+        "classificationMode": "SINGLE_PRIMARY",
+        "dictionaryVersion": "2026-08-v1",
+        "categories": categories,
+        "topCategories": top_categories,
+    }
 
 
 def _policy_stats(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -213,6 +358,7 @@ def build_statistics(records: list[dict[str, Any]]) -> dict[str, Any]:
             for area in ("CLEAN UP", "SMART UP", "WALK UP")
         ],
         "eventStatistics": _event_statistics(records),
+        "commentKeywordAnalysis": build_comment_keyword_analysis(records),
         "comments": comments,
         "isDemoData": True,
         "disclaimer": SIMULATION_DISCLAIMER,
@@ -271,6 +417,7 @@ def build_candidate_report(records: list[dict[str, Any]]) -> dict[str, Any]:
         "topPriorities": stats["topPriorities"],
         "pledgeAreaSelection": stats["pledgeAreaSelection"],
         "eventStatistics": stats["eventStatistics"],
+        "commentKeywordAnalysis": stats["commentKeywordAnalysis"],
         "perRiver": stats["riverParticipation"],
         "prioritiesByRiver": river_priorities,
         "prioritiesByDistrict": district_priorities,
@@ -279,6 +426,9 @@ def build_candidate_report(records: list[dict[str, Any]]) -> dict[str, Any]:
             "participation": "정책 시뮬레이션 완료 후 익명 집계에 동의한 응답만 포함합니다.",
             "rates": "각 비율은 해당 집단의 응답 수를 분모로 반올림한 값입니다.",
             "representativeness": "본 통계는 전체 부산 시민의 의견을 대표하지 않습니다.",
+            "commentKeywords": (
+                "내용이 있는 의견을 한국어 키워드 사전으로 분석해 의견당 대표 범주 하나를 집계합니다."
+            ),
             "prediction": SIMULATION_DISCLAIMER,
         },
         "isDemoData": True,

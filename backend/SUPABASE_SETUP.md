@@ -112,6 +112,7 @@ SUPABASE_SECRET_KEY=서버 전용 Secret key
 SUPABASE_TABLE=responses
 SUPABASE_TIMEOUT_SECONDS=10
 ALLOWED_ORIGINS=실제 프런트엔드 주소
+BACKUP_POLICY_CONFIRMED=true
 ```
 
 `ALLOWED_ORIGINS` 예시:
@@ -121,6 +122,14 @@ https://river-example.vercel.app
 ```
 
 운영 환경에는 `localhost` 주소를 남기지 않는 것을 권장합니다.
+
+`BACKUP_POLICY_CONFIRMED`는 애플리케이션 동작을 바꾸지 않는 배포 점검용 값입니다. Supabase Dashboard에서 현재 프로젝트 요금제의 백업·복구 기능과 운영팀의 복구 절차를 확인한 뒤에만 `true`로 설정합니다.
+
+배포 전에 비밀값을 출력하지 않는 자동 점검을 실행합니다.
+
+```bash
+python3 scripts/predeploy_check.py --check-database
+```
 
 ## SQLite로 다시 실행하기
 

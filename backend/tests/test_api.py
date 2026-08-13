@@ -299,6 +299,14 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(
             stats["eventStatistics"]["choices"][0]["count"], 2
         )
+        self.assertEqual(stats["commentKeywordAnalysis"]["totalComments"], 2)
+        self.assertEqual(
+            sum(
+                item["count"]
+                for item in stats["commentKeywordAnalysis"]["categories"]
+            ),
+            2,
+        )
         self.assertEqual(
             sum(item["count"] for item in stats["gradeDistribution"]["final"]), 2
         )
@@ -306,6 +314,9 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(report["summary"]["totalParticipants"], 2)
         self.assertEqual(len(report["prioritiesByDistrict"]), 2)
         self.assertEqual(report["eventStatistics"], stats["eventStatistics"])
+        self.assertEqual(
+            report["commentKeywordAnalysis"], stats["commentKeywordAnalysis"]
+        )
 
     def test_candidate_report_filters_and_inclusive_utc_dates(self) -> None:
         self.store_response(
@@ -386,6 +397,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(district_priorities["ecology"]["rate"], 50)
         self.assertEqual(status, 200)
         self.assertEqual(combined["summary"]["totalParticipants"], 1)
+        self.assertEqual(combined["commentKeywordAnalysis"]["totalComments"], 1)
         self.assertEqual(combined["filters"]["to"], "2026-08-31")
         self.assertEqual(combined["period"]["from"], "2026-08-01T00:00:00Z")
         self.assertEqual(len(combined["prioritiesByRiver"]), 1)

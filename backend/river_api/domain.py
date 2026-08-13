@@ -135,9 +135,9 @@ POLICIES = (
     Policy("treatment", "하천 정화시설 확대", 30, 16, 5, 3, "CLEAN UP", True),
     Policy("sourceBlock", "오염원 유입 긴급 차단", 20, 10, 4, 14, "CLEAN UP", True),
     Policy("ecology", "생태하천 복원", 25, 28, 12, 2, "CLEAN UP", True),
-    Policy("sensor", "스마트 수질센서 확대", 15, 3, 8, 26, "SMART UP", False),
+    Policy("sensor", "스마트 수질센서 확대", 20, 3, 8, 26, "SMART UP", False),
     Policy("monitoring", "주민 참여 모니터링", 10, 5, 16, 18, "SMART UP", False),
-    Policy("walking", "블루 워킹 로드 조성", 15, 6, 28, 2, "WALK UP", False),
+    Policy("walking", "블루 워킹 로드 조성", 20, 6, 28, 2, "WALK UP", False),
 )
 POLICY_BY_ID = {policy.id: policy for policy in POLICIES}
 

@@ -1465,15 +1465,32 @@ textarea.form-field__control {
 }
 
 .report-print-header h2 {
-  font-size: var(--font-size-xl);
+  font-size: clamp(1.125rem, 5.3vw, var(--font-size-xl));
   line-height: var(--line-height-tight);
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  white-space: nowrap;
 }
 
 .report-print-header p:last-child {
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
+}
+
+.report-print-button {
+  flex: 0 0 auto;
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+@media (max-width: 412px) {
+  .report-print-header {
+    flex-direction: column;
+  }
+
+  .report-print-button {
+    width: 100%;
+  }
 }
 
 .candidate-summary-grid .card__body {

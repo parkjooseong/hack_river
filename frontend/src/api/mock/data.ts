@@ -139,7 +139,7 @@ export const mockGameConfig = {
     {
       id: 'sensor',
       name: '스마트 수질센서 확대',
-      cost: 15,
+      cost: 20,
       scoreEffects: { ecology: 3, citizen: 8, monitoring: 26 },
       pledgeArea: 'SMART UP',
       directlyReducesBod: false,
@@ -155,7 +155,7 @@ export const mockGameConfig = {
     {
       id: 'walking',
       name: '블루 워킹 로드 조성',
-      cost: 15,
+      cost: 20,
       scoreEffects: { ecology: 6, citizen: 28, monitoring: 2 },
       pledgeArea: 'WALK UP',
       directlyReducesBod: false,

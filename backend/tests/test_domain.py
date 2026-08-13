@@ -145,7 +145,7 @@ class SimulationTests(unittest.TestCase):
                 )
 
     def test_event_cost_is_included_in_budget_validation(self) -> None:
-        policy_ids = ["sewer", "treatment", "sourceBlock", "monitoring", "walking"]
+        policy_ids = ["sewer", "treatment", "sourceBlock", "ecology"]
         with self.assertRaises(DomainValidationError) as context:
             simulate("dongcheon", policy_ids, "INVESTIGATE")
 

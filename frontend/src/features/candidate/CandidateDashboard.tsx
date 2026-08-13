@@ -144,7 +144,7 @@ export function CandidateDashboard({
                 {formatUtcPeriodDate(reportData.period.to)}
               </p>
             </div>
-            <Button className="no-print" onClick={() => globalThis.print()}>
+            <Button className="report-print-button no-print" onClick={() => globalThis.print()}>
               PDF로 저장·인쇄
             </Button>
           </header>

@@ -56,16 +56,6 @@ function normalizeError(error: unknown) {
   })
 }
 
-function resultTone(result: SimulationResult) {
-  if (result.perfectClear) {
-    return 'info' as const
-  }
-  if (result.missionSuccess) {
-    return 'success' as const
-  }
-  return 'warning' as const
-}
-
 function policyEffect(policy: PolicyOption) {
   const effects = [
     policy.scoreEffects.ecology
@@ -494,7 +484,6 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
     return (
       <div className="challenge-result">
         <Card className="result-hero" title={simulation.resultTitle}>
-          <Badge tone={resultTone(simulation)}>{simulation.finalGrade.label}</Badge>
           <p className="result-message">{simulation.resultMessage}</p>
           <div
             className="river-character figma-result-character"
@@ -590,20 +579,6 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
           </Card>
         </PageSection>
 
-        <PageSection title="획득 배지">
-          {simulation.badges.length > 0 ? (
-            <div className="badge-list">
-              {simulation.badges.map((badge) => (
-                <Card key={badge.id} tone="subtle" title={badge.name}>
-                  <p>{badge.description}</p>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <p className="muted-copy">이번 조합에서 획득한 배지가 없습니다.</p>
-          )}
-        </PageSection>
-
         <PageSection title="선택의 강점">
           <ul className="bullet-list">
             {simulation.strengths.map((strength) => (
@@ -631,18 +606,6 @@ export function ChallengeExperience({ config, river }: ChallengeExperienceProps)
             </div>
           </PageSection>
         ) : null}
-
-        <Card
-          title="공약 연계도"
-          description="선택한 정책이 세 공약 영역과 연결된 단순 비율입니다."
-        >
-          <ProgressBar
-            label="CLEAN UP · SMART UP · WALK UP"
-            value={simulation.pledgeMatchRate ?? 0}
-            valueText={`${simulation.pledgeMatchRate ?? 0}%`}
-          />
-          <p className="muted-copy">정치적 지지율이나 여론조사 수치가 아닙니다.</p>
-        </Card>
 
         <Notice tone="info" title="체험 결과 안내">
           {simulation.disclaimer ?? config.disclaimer}

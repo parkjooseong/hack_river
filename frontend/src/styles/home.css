@@ -41,10 +41,30 @@
   transform: translateX(-50%);
 }
 
-.figma-home-logo > img {
+.figma-home-logo > img:first-child {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+}
+
+.figma-home-logo__accent-1,
+.figma-home-logo__accent-2 {
+  position: absolute;
+  pointer-events: none;
+}
+
+.figma-home-logo__accent-1 {
+  top: 36.26%;
+  left: 34.68%;
+  width: 4.05%;
+  height: 20.88%;
+}
+
+.figma-home-logo__accent-2 {
+  top: 47.25%;
+  left: 43.24%;
+  width: 1.58%;
+  height: 8.24%;
 }
 
 .figma-home-mission {

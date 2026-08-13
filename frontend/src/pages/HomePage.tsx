@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
 
 import homeBackground from '../assets/figma/home/home-background.png'
+import homeLogoAccent1 from '../assets/figma/home/home-logo-accent-1.svg'
+import homeLogoAccent2 from '../assets/figma/home/home-logo-accent-2.svg'
 import homeLogo from '../assets/figma/home/home-logo.png'
 import missionStar from '../assets/figma/home/mission-star.svg'
 import dongcheonCharacter from '../assets/figma/policy-selection/dongcheon-character.png'
@@ -39,6 +41,8 @@ export default function HomePage() {
 
       <h1 className="figma-home-logo">
         <img src={homeLogo} alt="강 새로이" />
+        <img className="figma-home-logo__accent-1" src={homeLogoAccent1} alt="" />
+        <img className="figma-home-logo__accent-2" src={homeLogoAccent2} alt="" />
       </h1>
 
       <section className="figma-home-mission" aria-label="게임 안내">

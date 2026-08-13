@@ -11,6 +11,9 @@ import goejeongcheonGround from '../../assets/figma/policy-selection/goejeongche
 import oncheoncheonBackground from '../../assets/figma/policy-selection/oncheoncheon-background.png'
 import oncheoncheonCharacter from '../../assets/figma/policy-selection/oncheoncheon-character.png'
 import oncheoncheonGround from '../../assets/figma/policy-selection/oncheoncheon-ground.svg'
+import oncheoncheonOtterCrowned from '../../assets/figma/policy-selection/oncheoncheon-otter-crowned.png'
+import oncheoncheonOtterCrying from '../../assets/figma/policy-selection/oncheoncheon-otter-crying.png'
+import oncheoncheonOtterNeutral from '../../assets/figma/policy-selection/oncheoncheon-otter-neutral.png'
 
 export const RIVER_SCENE_ASSETS = {
   dongcheon: {
@@ -44,10 +47,16 @@ const DONGCHEON_TIGERS = {
   crowned: dongcheonTigerCrowned,
 } as const
 
+const ONCHEONCHEON_OTTERS = {
+  crying: oncheoncheonOtterCrying,
+  neutral: oncheoncheonOtterNeutral,
+  crowned: oncheoncheonOtterCrowned,
+} as const
+
 /**
  * 백엔드 수질 등급 level(0~6)을 화면용 1~7단계로 변환합니다.
- * 동천 호랑이는 1~3단계에서 울고, 4~5단계에서 평온하며,
- * 안전한 6~7단계에서 왕관을 씁니다.
+ * 동천 호랑이와 온천천 수달은 1~3단계에서 울고, 4~5단계에서
+ * 평온하며, 안전한 6~7단계에서 최고 단계 모습을 사용합니다.
  */
 export function resolveRiverSceneCharacter(
   riverId: RiverId,
@@ -55,7 +64,7 @@ export function resolveRiverSceneCharacter(
 ): RiverSceneCharacterPresentation {
   const waterQualityStage = Math.min(7, Math.max(1, Math.trunc(gradeLevel) + 1))
 
-  if (riverId !== 'dongcheon') {
+  if (riverId !== 'dongcheon' && riverId !== 'oncheoncheon') {
     return {
       src: RIVER_SCENE_ASSETS[riverId].character,
       mood: 'default',
@@ -63,13 +72,15 @@ export function resolveRiverSceneCharacter(
     }
   }
 
+  const characters = riverId === 'dongcheon' ? DONGCHEON_TIGERS : ONCHEONCHEON_OTTERS
+
   if (waterQualityStage <= 3) {
-    return { src: DONGCHEON_TIGERS.crying, mood: 'crying', waterQualityStage }
+    return { src: characters.crying, mood: 'crying', waterQualityStage }
   }
 
   if (waterQualityStage <= 5) {
-    return { src: DONGCHEON_TIGERS.neutral, mood: 'neutral', waterQualityStage }
+    return { src: characters.neutral, mood: 'neutral', waterQualityStage }
   }
 
-  return { src: DONGCHEON_TIGERS.crowned, mood: 'crowned', waterQualityStage }
+  return { src: characters.crowned, mood: 'crowned', waterQualityStage }
 }

@@ -1,12 +1,28 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 const readStyle = (name) => readFileSync(new URL(`../src/styles/${name}`, import.meta.url), 'utf8')
 
 const tokens = readStyle('tokens.css')
+const fonts = readStyle('fonts.css')
 const reset = readStyle('reset.css')
 const global = readStyle('global.css')
 const components = readStyle('components.css')
+
+assert.ok(
+  existsSync(new URL('../src/assets/fonts/PretendardVariable.woff2', import.meta.url)),
+  'Pretendard 웹폰트 파일이 필요합니다.',
+)
+assert.ok(
+  existsSync(new URL('../src/assets/fonts/Ownglyph-PDH.ttf', import.meta.url)),
+  '온글잎 박다현체 파일이 필요합니다.',
+)
+assert.match(fonts, /font-family:\s*Pretendard/, 'Pretendard @font-face 선언이 필요합니다.')
+assert.match(
+  fonts,
+  /font-family:\s*'Ownglyph PDH'/,
+  '온글잎 박다현체 @font-face 선언이 필요합니다.',
+)
 
 assert.match(tokens, /--app-max-width:\s*412px/, '412px 앱 최대 너비가 필요합니다.')
 assert.match(tokens, /--touch-target:\s*44px/, '44px 최소 터치 영역이 필요합니다.')

@@ -42,6 +42,11 @@ describe('PolicySelectionScreen', () => {
       expect(markup).toContain('BOD')
       expect(markup).toContain('생태 +')
       expect(markup).toContain('만족 +')
+      expect(markup).toContain('관리 +')
+      expect(markup).toContain('figma-policy-option__effects')
+      expect(markup).toContain('figma-policy-option__ecology-icon')
+      expect(markup).toContain('figma-policy-option__citizen-icon')
+      expect(markup).toContain('figma-metric-icon--management-compact')
     },
   )
 

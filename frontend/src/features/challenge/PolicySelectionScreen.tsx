@@ -69,14 +69,21 @@ type PolicySelectionScreenProps = {
   onPolicySelect: (policyId: PolicyId) => void
 }
 
-function ManagementIcon() {
+function ManagementIcon({ compact = false }: { compact?: boolean }) {
   return (
-    <span className="figma-metric-icon figma-metric-icon--management" aria-hidden="true">
+    <span
+      className={`figma-metric-icon figma-metric-icon--management${compact ? ' figma-metric-icon--management-compact' : ''}`}
+      aria-hidden="true"
+    >
       <img src={hammerDetail} alt="" />
       <img src={hammerHandle} alt="" />
       <img src={hammerHead} alt="" />
     </span>
   )
+}
+
+function signedScore(value: number) {
+  return value > 0 ? `+${value}` : String(value)
 }
 
 export function PolicySelectionScreen({
@@ -192,8 +199,9 @@ export function PolicySelectionScreen({
             const bodEffect = river.policyEffects[policy.id] ?? 0
             const effectLabel = [
               bodEffect > 0 ? `BOD -${bodEffect.toFixed(1)}` : 'BOD 변화 없음',
-              `생태 +${policy.scoreEffects.ecology}`,
-              `만족 +${policy.scoreEffects.citizen}`,
+              `생태 ${signedScore(policy.scoreEffects.ecology)}`,
+              `만족 ${signedScore(policy.scoreEffects.citizen)}`,
+              `관리 ${signedScore(policy.scoreEffects.monitoring)}`,
             ].join(', ')
 
             return (
@@ -209,9 +217,21 @@ export function PolicySelectionScreen({
                 <strong>{policyLabels[policy.id]}</strong>
                 <span className="figma-policy-option__cost">{policy.cost}억</span>
                 <small>
-                  {bodEffect > 0 ? `BOD -${bodEffect.toFixed(1)}` : 'BOD 유지'}
-                  <br />
-                  생태 +{policy.scoreEffects.ecology} · 만족 +{policy.scoreEffects.citizen}
+                  <span>{bodEffect > 0 ? `BOD -${bodEffect.toFixed(1)}` : 'BOD 유지'}</span>
+                  <span className="figma-policy-option__effects" aria-hidden="true">
+                    <span>
+                      <img className="figma-policy-option__ecology-icon" src={ecologyIcon} alt="" />
+                      {signedScore(policy.scoreEffects.ecology)}
+                    </span>
+                    <span>
+                      <img className="figma-policy-option__citizen-icon" src={heartIcon} alt="" />
+                      {signedScore(policy.scoreEffects.citizen)}
+                    </span>
+                    <span>
+                      <ManagementIcon compact />
+                      {signedScore(policy.scoreEffects.monitoring)}
+                    </span>
+                  </span>
                 </small>
               </button>
             )

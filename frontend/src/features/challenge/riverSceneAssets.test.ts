@@ -35,10 +35,19 @@ describe('resolveRiverSceneCharacter', () => {
     expect(character.src).toContain(`oncheoncheon-otter-${mood}.png`)
   })
 
-  it('괴정천 캐릭터에는 다른 하천의 표정 단계를 적용하지 않는다', () => {
-    const character = resolveRiverSceneCharacter('goejeongcheon', 6)
+  it.each([
+    [0, 1, 'crying'],
+    [1, 2, 'crying'],
+    [2, 3, 'crying'],
+    [3, 4, 'neutral'],
+    [4, 5, 'neutral'],
+    [5, 6, 'crowned'],
+    [6, 7, 'crowned'],
+  ] as const)('괴정천 level %i를 수질 %i단계 %s 고양이로 표시한다', (level, stage, mood) => {
+    const character = resolveRiverSceneCharacter('goejeongcheon', level)
 
-    expect(character.mood).toBe('default')
-    expect(character.src).toContain('goejeongcheon-character.png')
+    expect(character.waterQualityStage).toBe(stage)
+    expect(character.mood).toBe(mood)
+    expect(character.src).toContain(`goejeongcheon-cat-${mood}.png`)
   })
 })

@@ -6,6 +6,9 @@ import dongcheonTigerCrowned from '../../assets/figma/policy-selection/dongcheon
 import dongcheonTigerCrying from '../../assets/figma/policy-selection/dongcheon-tiger-crying.png'
 import dongcheonTigerNeutral from '../../assets/figma/policy-selection/dongcheon-tiger-neutral.png'
 import goejeongcheonBackground from '../../assets/figma/policy-selection/goejeongcheon-background.png'
+import goejeongcheonCatCrowned from '../../assets/figma/policy-selection/goejeongcheon-cat-crowned.png'
+import goejeongcheonCatCrying from '../../assets/figma/policy-selection/goejeongcheon-cat-crying.png'
+import goejeongcheonCatNeutral from '../../assets/figma/policy-selection/goejeongcheon-cat-neutral.png'
 import goejeongcheonCharacter from '../../assets/figma/policy-selection/goejeongcheon-character.png'
 import goejeongcheonGround from '../../assets/figma/policy-selection/goejeongcheon-ground.svg'
 import oncheoncheonBackground from '../../assets/figma/policy-selection/oncheoncheon-background.png'
@@ -53,10 +56,22 @@ const ONCHEONCHEON_OTTERS = {
   crowned: oncheoncheonOtterCrowned,
 } as const
 
+const GOEJEONGCHEON_CATS = {
+  crying: goejeongcheonCatCrying,
+  neutral: goejeongcheonCatNeutral,
+  crowned: goejeongcheonCatCrowned,
+} as const
+
+const RIVER_CHARACTER_VARIANTS = {
+  dongcheon: DONGCHEON_TIGERS,
+  goejeongcheon: GOEJEONGCHEON_CATS,
+  oncheoncheon: ONCHEONCHEON_OTTERS,
+} as const
+
 /**
  * 백엔드 수질 등급 level(0~6)을 화면용 1~7단계로 변환합니다.
- * 동천 호랑이와 온천천 수달은 1~3단계에서 울고, 4~5단계에서
- * 평온하며, 안전한 6~7단계에서 최고 단계 모습을 사용합니다.
+ * 세 하천 캐릭터는 1~3단계에서 울고, 4~5단계에서 평온하며,
+ * 안전한 6~7단계에서 최고 단계 모습을 사용합니다.
  */
 export function resolveRiverSceneCharacter(
   riverId: RiverId,
@@ -64,15 +79,7 @@ export function resolveRiverSceneCharacter(
 ): RiverSceneCharacterPresentation {
   const waterQualityStage = Math.min(7, Math.max(1, Math.trunc(gradeLevel) + 1))
 
-  if (riverId !== 'dongcheon' && riverId !== 'oncheoncheon') {
-    return {
-      src: RIVER_SCENE_ASSETS[riverId].character,
-      mood: 'default',
-      waterQualityStage,
-    }
-  }
-
-  const characters = riverId === 'dongcheon' ? DONGCHEON_TIGERS : ONCHEONCHEON_OTTERS
+  const characters = RIVER_CHARACTER_VARIANTS[riverId]
 
   if (waterQualityStage <= 3) {
     return { src: characters.crying, mood: 'crying', waterQualityStage }

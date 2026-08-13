@@ -1,5 +1,7 @@
--- PostgreSQL/Supabase 배포용 스키마입니다. 애플리케이션에서 생성한 UUID를 저장하므로 확장이 필요 없습니다.
-CREATE TABLE IF NOT EXISTS responses (
+-- Supabase SQL Editor에서 실행합니다. 애플리케이션에서 UUID를 생성하므로 확장이 필요 없습니다.
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS public.responses (
     id uuid PRIMARY KEY,
     river_id text NOT NULL CHECK (river_id IN ('dongcheon', 'goejeongcheon', 'oncheoncheon')),
     character_name text NOT NULL,
@@ -23,6 +25,14 @@ CREATE TABLE IF NOT EXISTS responses (
     created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_responses_created_at ON responses(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_responses_river_id ON responses(river_id);
-CREATE INDEX IF NOT EXISTS idx_responses_top_priority ON responses(top_priority);
+ALTER TABLE public.responses ENABLE ROW LEVEL SECURITY;
+
+-- 브라우저에서 직접 읽거나 쓸 수 없게 하고 서버 Secret key만 사용합니다.
+REVOKE ALL ON TABLE public.responses FROM anon, authenticated;
+GRANT SELECT, INSERT ON TABLE public.responses TO service_role;
+
+CREATE INDEX IF NOT EXISTS idx_responses_created_at ON public.responses(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_responses_river_id ON public.responses(river_id);
+CREATE INDEX IF NOT EXISTS idx_responses_top_priority ON public.responses(top_priority);
+
+COMMIT;

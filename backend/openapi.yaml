@@ -4,7 +4,8 @@ info:
   version: 0.1.0
   description: |
     부산 하천 정책 체험용 API입니다. BOD 변화량은 게임용 데모 값이며
-    실제 수질 개선을 예측하거나 보장하지 않습니다.
+    실제 수질 개선을 예측하거나 보장하지 않습니다. 모든 HTTP 응답은
+    `X-Request-ID` 헤더를 포함하며, 오류 응답의 `requestId`와 같은 값입니다.
 servers:
   - url: http://127.0.0.1:8000
 paths:
@@ -22,6 +23,8 @@ paths:
                 properties:
                   status: {type: string, example: ok}
                   service: {type: string, example: 1mg-challenge-api}
+        '405': {$ref: '#/components/responses/MethodNotAllowed'}
+        '500': {$ref: '#/components/responses/InternalServerError'}
   /api/game/config:
     get:
       summary: 게임 설정 조회
@@ -31,6 +34,8 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GameConfig'}
+        '405': {$ref: '#/components/responses/MethodNotAllowed'}
+        '500': {$ref: '#/components/responses/InternalServerError'}
   /api/simulations:
     post:
       summary: 정책 조합 계산
@@ -46,6 +51,10 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/SimulationResult'}
         '400': {$ref: '#/components/responses/ValidationError'}
+        '405': {$ref: '#/components/responses/MethodNotAllowed'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+        '500': {$ref: '#/components/responses/InternalServerError'}
   /api/responses:
     post:
       summary: 익명 참여 결과 저장
@@ -68,6 +77,11 @@ paths:
                   createdAt: {type: string, format: date-time}
                   result: {$ref: '#/components/schemas/SimulationResult'}
         '400': {$ref: '#/components/responses/ValidationError'}
+        '405': {$ref: '#/components/responses/MethodNotAllowed'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+        '500': {$ref: '#/components/responses/InternalServerError'}
+        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
   /api/stats:
     get:
       summary: 시민 참여 통계 조회
@@ -77,6 +91,9 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Statistics'}
+        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
+        '405': {$ref: '#/components/responses/MethodNotAllowed'}
+        '500': {$ref: '#/components/responses/InternalServerError'}
   /api/candidate/report:
     get:
       summary: 후보자용 정책 리포트 데이터 조회
@@ -88,6 +105,9 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '503': {$ref: '#/components/responses/DatabaseUnavailable'}
+        '405': {$ref: '#/components/responses/MethodNotAllowed'}
+        '500': {$ref: '#/components/responses/InternalServerError'}
 components:
   responses:
     ValidationError:
@@ -100,9 +120,11 @@ components:
             properties:
               error:
                 type: object
-                required: [code, message, details]
+                required: [code, message, details, requestId]
                 properties:
-                  code: {type: string, example: VALIDATION_ERROR}
+                  code:
+                    type: string
+                    enum: [VALIDATION_ERROR, PERSONAL_INFORMATION_NOT_ALLOWED]
                   message: {type: string}
                   details:
                     type: array
@@ -111,7 +133,56 @@ components:
                       properties:
                         field: {type: string}
                         reason: {type: string}
+                  requestId: {type: string, pattern: '^[0-9a-f]{32}$'}
+    DatabaseUnavailable:
+      description: 공유 데이터베이스 일시 장애
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: object
+                required: [code, message, details, requestId]
+                properties:
+                  code: {type: string, enum: [DATABASE_UNAVAILABLE]}
+                  message: {type: string}
+                  details: {type: array, maxItems: 0}
+                  requestId: {type: string, pattern: '^[0-9a-f]{32}$'}
+    MethodNotAllowed:
+      description: 지원하지 않는 HTTP 메서드
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    PayloadTooLarge:
+      description: 요청 본문 크기 제한 초과
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    UnsupportedMediaType:
+      description: application/json이 아닌 요청
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    InternalServerError:
+      description: 예상하지 못한 서버 오류
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
   schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, details, requestId]
+          properties:
+            code: {type: string}
+            message: {type: string}
+            details: {type: array, items: {type: object, additionalProperties: true}}
+            requestId: {type: string, pattern: '^[0-9a-f]{32}$'}
     SimulationRequest:
       type: object
       additionalProperties: false
@@ -148,7 +219,10 @@ components:
         district:
           type: string
           enum: [geumjeong, dongnae, busanjin, saha, other, prefer_not]
-        comment: {type: string, maxLength: 200}
+        comment:
+          type: string
+          maxLength: 200
+          description: 이름, 전화번호, 이메일, 주민등록번호, 정확한 주소와 HTML 태그를 포함할 수 없습니다.
         consentToAggregate: {type: boolean, enum: [true]}
     Grade:
       type: object

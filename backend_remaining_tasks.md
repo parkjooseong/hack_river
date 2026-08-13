@@ -6,42 +6,71 @@
 
 ## 우선순위 요약
 
-| 순서 | 작업 | 중요도 | 배포 전 필수 | 선행 작업 |
+| 순서 | 작업 | 중요도 | 현재 상태 | 선행 작업 |
 |---:|---|---|---|---|
-| 1 | PostgreSQL/Supabase 공유 DB 연결 | P0 | 필수 | 없음 |
-| 2 | 개인정보 보호 및 운영 오류 처리 보강 | P0 | 필수 | 없음 |
-| 3 | 결과 안내와 배지 판정 구현 | P1 | 권장 | 배지 기준 확정 |
-| 4 | 후보자 대시보드 필터·페이지네이션 | P1 | 권장 | 1번 |
-| 5 | 돌발상황 기능 구현 | P2 | 선택 | 이벤트 규칙 확정 |
-| 6 | 시민 의견 키워드 분석 | P3 | 선택 | 1번, 4번 |
-| 7 | 전체 통합 테스트 및 배포 점검 | P0 | 필수 | 1~4번 |
+| 1 | PostgreSQL/Supabase 공유 DB 연결 | P0 | 완료 | 없음 |
+| 2 | 개인정보 보호 및 운영 오류 처리 보강 | P0 | 완료 | 없음 |
+| 3 | 결과 안내와 배지 판정 구현 | P1 | 미구현 | 배지 기준 확정 |
+| 4 | 후보자 대시보드 필터·페이지네이션 | P1 | 미구현 | 없음 (1번 완료) |
+| 5 | 돌발상황 기능 구현 | P2 | 미구현·선택 | 이벤트 규칙 확정 |
+| 6 | 시민 의견 키워드 분석 | P3 | 미구현·선택 | 1번, 4번 |
+| 7 | 전체 통합 테스트 및 배포 점검 | P0 | 진행 중 | 1~4번 |
 
 ---
 
 # 1. PostgreSQL/Supabase 공유 DB 연결
 
+## 현재 상태
+
+- [x] Supabase REST 저장소 구현
+- [x] SQLite/Supabase 실행 환경 선택
+- [x] `.env` 로딩과 `.gitignore` 보호
+- [x] Secret key와 레거시 `service_role` 호환
+- [x] 1,000건 초과 페이지 조회
+- [x] DB 장애 시 안전한 `503` 응답
+- [x] Supabase 단위·통합 테스트
+- [x] 사용자가 Supabase 프로젝트 생성
+- [x] SQL Editor에서 마이그레이션 실행
+- [x] `backend/.env`에 프로젝트 URL과 Secret key 입력
+- [x] 실제 Supabase를 사용한 저장·재조회 검증
+
+## 실제 연결 검증 결과
+
+2026-08-13 기준 실제 Supabase 프로젝트에서 다음 항목을 확인했습니다.
+
+- `responses` 테이블 읽기 성공
+- 합성 테스트 응답 저장 성공
+- 별도 저장소 인스턴스에서 같은 응답 재조회 성공
+- `POST /api/responses` 응답 `201`
+- 저장 직후 `GET /api/stats` 반영 및 응답 `200`
+- 저장 직후 `GET /api/candidate/report` 반영 및 응답 `200`
+- 테스트 응답 삭제 후 데이터 0건 복구
+- Secret key와 프로젝트 URL이 Git에 포함되지 않음
+
 ## 작업 목적
 
-현재 SQLite 저장 방식은 로컬 개발과 단일 서버 시연에는 사용할 수 있지만, 여러 서버 인스턴스나 서버리스 배포에서는 데이터를 안정적으로 공유할 수 없습니다. 실제 시민 참여 결과를 모으려면 공유 데이터베이스 연결이 필요합니다.
+현재 코드는 로컬 SQLite와 Supabase 공유 DB를 선택할 수 있으며, 계정 설정·SQL 마이그레이션·실제 저장 및 재조회 검증까지 완료했습니다.
 
 ## 구현할 내용
 
-- `ResponseRepository` 규약을 구현하는 PostgreSQL 저장소 추가
-- `DATABASE_URL` 환경변수로 데이터베이스 연결
-- 서버 시작 시 SQLite 또는 PostgreSQL 저장소 선택
-- 기존 PostgreSQL 마이그레이션 적용
+- `ResponseRepository` 규약을 구현하는 Supabase REST 저장소 추가
+- `SUPABASE_URL`, `SUPABASE_SECRET_KEY` 환경변수 사용
+- 서버 시작 시 SQLite 또는 Supabase 저장소 선택
+- Supabase SQL Editor용 PostgreSQL 마이그레이션 제공
 - 연결 실패, 저장 실패, 조회 실패 처리
-- DB 비밀번호와 접속 주소는 코드나 Git에 저장하지 않기
-- 연결 풀 종료 처리
+- Secret key와 접속 정보를 코드나 Git에 저장하지 않기
+- 전체 통계를 위한 페이지 단위 조회
 
 ## 수정·추가 예상 파일
 
-- `backend/river_api/postgres_repository.py` 신규 생성
+- `backend/river_api/supabase_repository.py`
+- `backend/river_api/config.py`
 - `backend/river_api/__main__.py`
 - `backend/river_api/application.py`
 - `backend/.env.example`
 - `backend/migrations/001_postgresql_responses.sql`
 - `backend/README.md`
+- `backend/SUPABASE_SETUP.md`
 
 ## 완료 조건
 
@@ -54,6 +83,38 @@
 ---
 
 # 2. 개인정보 보호 및 운영 오류 처리 보강
+
+## 현재 상태
+
+- [x] 이메일·휴대전화·유선전화 패턴 차단
+- [x] 주민등록번호 형태 차단
+- [x] 명시적으로 입력한 실명과 상세 주소 형태 차단
+- [x] Unicode 정규화, 공백·제어문자 정리
+- [x] HTML 태그 입력 거부
+- [x] 게임 설정 API에 개인정보 입력 금지 안내 제공
+- [x] 모든 오류를 공통 JSON 구조로 통일
+- [x] 잘못된 HTTP 메서드에 `405`와 `Allow` 헤더 반환
+- [x] JSON이 아닌 POST 요청에 `415` 반환
+- [x] 16KiB 초과 요청에 `413` 반환
+- [x] DB 장애에 안전한 `503` 반환
+- [x] 예상하지 못한 오류에 내부 정보를 숨긴 `500` 반환
+- [x] 모든 HTTP 응답에 `X-Request-ID` 제공
+- [x] 개인정보·키·DB 접속 정보를 제외한 안전 로그
+- [x] 단위·통합·실제 HTTP 테스트
+
+## 실제 HTTP 검증 결과
+
+2026-08-13 기준 실제 Supabase 설정으로 다음 항목을 확인했습니다.
+
+- 정상 상태 조회 `200`
+- 잘못된 메서드 `405 METHOD_NOT_ALLOWED`
+- 잘못된 Content-Type `415 UNSUPPORTED_MEDIA_TYPE`
+- 잘못된 JSON `400 INVALID_JSON`
+- 개인정보 포함 의견 `400 PERSONAL_INFORMATION_NOT_ALLOWED`
+- 요청 크기 초과 `413 PAYLOAD_TOO_LARGE`
+- 모든 오류의 응답 본문 `requestId`와 `X-Request-ID` 헤더 일치
+- 거부된 의견이 Supabase에 저장되지 않음
+- 자동 테스트 26개 통과
 
 ## 작업 목적
 
@@ -99,11 +160,11 @@
 
 ## 완료 조건
 
-- 이메일, 휴대전화, 주민등록번호 형태가 포함된 의견 저장 차단
-- 허용하지 않는 요청 필드 저장 차단
-- DB 오류가 발생해도 서버 프로세스가 종료되지 않음
-- 모든 오류가 동일한 JSON 구조로 반환됨
-- 관련 자동 테스트 통과
+- [x] 이메일, 휴대전화, 주민등록번호 형태가 포함된 의견 저장 차단
+- [x] 허용하지 않는 요청 필드 저장 차단
+- [x] DB 오류가 발생해도 서버 프로세스가 종료되지 않음
+- [x] 모든 오류가 동일한 JSON 구조로 반환됨
+- [x] 관련 자동 테스트 통과
 
 ---
 

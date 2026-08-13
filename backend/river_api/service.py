@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
@@ -31,6 +32,82 @@ EMAIL_PATTERN = re.compile(
     re.IGNORECASE,
 )
 PHONE_PATTERN = re.compile(r"(?<!\d)01[016789][ -]?\d{3,4}[ -]?\d{4}(?!\d)")
+LANDLINE_PATTERN = re.compile(
+    r"(?<!\d)0(?:2|[3-6][1-5])[ -]?\d{3,4}[ -]?\d{4}(?!\d)"
+)
+RESIDENT_REGISTRATION_NUMBER_PATTERN = re.compile(
+    r"(?<!\d)\d{6}[ -]?[1-8]\d{6}(?!\d)"
+)
+EXPLICIT_NAME_PATTERN = re.compile(
+    r"(?:제\s*)?(?:이름|성명|실명)\s*(?:은|는|:)?\s*[가-힣]{2,5}(?:\s|$|입니다|이에요|예요)"
+)
+ROAD_ADDRESS_PATTERN = re.compile(
+    r"(?:[가-힣]{2,}(?:특별시|광역시|특별자치시|도|시|구|군)\s+){1,3}"
+    r"[가-힣0-9·.-]+(?:로|길)\s*\d{1,4}(?:-\d{1,4})?"
+)
+LOT_ADDRESS_PATTERN = re.compile(
+    r"(?:[가-힣]{2,}(?:특별시|광역시|특별자치시|도|시|구|군)\s+){1,3}"
+    r"[가-힣0-9·.-]+(?:읍|면|동|가)\s*(?:산\s*)?\d{1,4}(?:-\d{1,4})?"
+)
+UNIT_ADDRESS_PATTERN = re.compile(
+    r"(?:아파트|오피스텔|빌라)\s*\d{1,4}\s*동\s*\d{1,4}\s*호"
+)
+HTML_TAG_PATTERN = re.compile(
+    r"<!--|-->|<\s*/?\s*(?:script|style|iframe|object|embed|svg|math|[A-Za-z][A-Za-z0-9:-]*)\b[^>]*>",
+    re.IGNORECASE,
+)
+
+PERSONAL_INFORMATION_PATTERNS = (
+    EMAIL_PATTERN,
+    PHONE_PATTERN,
+    LANDLINE_PATTERN,
+    RESIDENT_REGISTRATION_NUMBER_PATTERN,
+    EXPLICIT_NAME_PATTERN,
+    ROAD_ADDRESS_PATTERN,
+    LOT_ADDRESS_PATTERN,
+    UNIT_ADDRESS_PATTERN,
+)
+
+
+def _normalize_comment(value: str) -> str:
+    normalized = unicodedata.normalize("NFKC", value)
+    safe_characters = []
+    for character in normalized:
+        category = unicodedata.category(character)
+        if category == "Cf":
+            continue
+        if category.startswith("C"):
+            safe_characters.append(" ")
+        else:
+            safe_characters.append(character)
+    return re.sub(r"\s+", " ", "".join(safe_characters)).strip()
+
+
+def _validate_comment(value: Any) -> str:
+    if not isinstance(value, str):
+        raise DomainValidationError(
+            "한 줄 의견은 문자열이어야 합니다.",
+            [{"field": "comment", "reason": "string_required"}],
+        )
+
+    comment = _normalize_comment(value)
+    if len(comment) > 200:
+        raise DomainValidationError(
+            "한 줄 의견은 200자 이하로 작성해 주세요.",
+            [{"field": "comment", "reason": "max_length_200"}],
+        )
+    if HTML_TAG_PATTERN.search(comment):
+        raise DomainValidationError(
+            "한 줄 의견에는 HTML 태그를 사용할 수 없습니다.",
+            [{"field": "comment", "reason": "html_not_allowed"}],
+        )
+    if any(pattern.search(comment) for pattern in PERSONAL_INFORMATION_PATTERNS):
+        raise DomainValidationError(
+            "한 줄 의견에 개인정보를 입력하지 말아 주세요.",
+            [{"field": "comment", "reason": "personal_information_not_allowed"}],
+            code="PERSONAL_INFORMATION_NOT_ALLOWED",
+        )
+    return comment
 
 
 def _require_object(payload: Any) -> dict[str, Any]:
@@ -87,23 +164,7 @@ class RiverService:
                 [{"field": "district", "reason": "unknown_district"}],
             )
 
-        comment = body.get("comment", "")
-        if not isinstance(comment, str):
-            raise DomainValidationError(
-                "한 줄 의견은 문자열이어야 합니다.",
-                [{"field": "comment", "reason": "string_required"}],
-            )
-        comment = comment.strip()
-        if len(comment) > 200:
-            raise DomainValidationError(
-                "한 줄 의견은 200자 이하로 작성해 주세요.",
-                [{"field": "comment", "reason": "max_length_200"}],
-            )
-        if EMAIL_PATTERN.search(comment) or PHONE_PATTERN.search(comment):
-            raise DomainValidationError(
-                "한 줄 의견에 이메일이나 전화번호를 입력하지 말아 주세요.",
-                [{"field": "comment", "reason": "personal_information_not_allowed"}],
-            )
+        comment = _validate_comment(body.get("comment", ""))
 
         simulation = simulate(body["riverId"], body["policyIds"])
         record = {

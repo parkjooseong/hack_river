@@ -14,12 +14,21 @@ SIMULATION_DISCLAIMER = (
     "실제 정책 시행 후의 수질을 예측하거나 보장하지 않습니다."
 )
 DEMO_DATA_NOTICE = "DEMO DATA — 기능 시연을 위한 가상 데이터입니다."
+COMMENT_PRIVACY_NOTICE = (
+    "한 줄 의견에는 이름, 전화번호, 이메일, 주민등록번호, 정확한 주소를 입력하지 마세요."
+)
 
 
 class DomainValidationError(ValueError):
-    def __init__(self, message: str, details: list[dict[str, str]] | None = None):
+    def __init__(
+        self,
+        message: str,
+        details: list[dict[str, str]] | None = None,
+        code: str = "VALIDATION_ERROR",
+    ):
         super().__init__(message)
         self.details = details or []
+        self.code = code
 
 
 @dataclass(frozen=True)
@@ -292,6 +301,11 @@ def game_config() -> dict[str, Any]:
         "policies": [policy.to_dict() for policy in POLICIES],
         "priorities": [{"id": key, "name": value} for key, value in PRIORITIES],
         "districts": [{"id": key, "name": value} for key, value in DISTRICTS],
+        "commentRules": {
+            "maxLength": 200,
+            "privacyNotice": COMMENT_PRIVACY_NOTICE,
+            "collectsPersonalInformation": False,
+        },
         "isDemoData": True,
         "demoDataNotice": DEMO_DATA_NOTICE,
         "disclaimer": SIMULATION_DISCLAIMER,
